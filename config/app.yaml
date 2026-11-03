@@ -1,0 +1,13 @@
+app:
+  title: "Financial Intelligence Platform"
+  version: "0.1.0"
+  debug: true
+
+interface:
+  framework: "streamlit"
+  show_sources: true
+  show_latency: true
+
+paths:
+  artifacts_dir: "artifacts"
+  reports_dir: "reports"

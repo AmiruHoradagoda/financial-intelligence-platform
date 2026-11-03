@@ -1,0 +1,17 @@
+evaluation:
+  dataset_path: "data/processed/golden_test_set.jsonl"
+
+  metrics:
+    rouge_l: true
+    llm_judge: true
+    latency: true
+    numerical_accuracy: true
+    citation_correctness: true
+    unsupported_answer_rate: true
+
+  judge:
+    model: null
+    score_min: 1
+    score_max: 5
+
+  output_dir: "artifacts/evaluation"

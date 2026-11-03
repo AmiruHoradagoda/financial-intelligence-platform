@@ -1,0 +1,40 @@
+
+# ======================================
+# Financial Intelligence Platform
+# Core Dependencies
+# ======================================
+
+# Configuration
+PyYAML>=6.0
+python-dotenv>=1.0
+
+# PDF & Data Processing
+PyMuPDF>=1.24
+pyarrow==26.0.0
+pandas>=2.2
+numpy>=1.26
+
+# LLM API Integration
+litellm>=1.0
+
+# Vector Database
+weaviate-client>=4.0
+
+# Embeddings & Reranking
+sentence-transformers>=3.0
+
+# Evaluation
+rouge-score>=0.1.2
+scikit-learn>=1.5
+
+# User Interface
+streamlit>=1.38
+
+# Notebooks
+jupyterlab>=4.0
+ipykernel>=6.0
+
+# Development & Testing
+pytest>=8.0
+ruff>=0.9
+tqdm>=4.0
