@@ -11,24 +11,19 @@ documents:
     - "uber_2024.pdf"
     - "uber_2023.pdf"
 
-ingestion:
-  chunk_size: 1500
-  chunk_overlap: 150
-  remove_headers_footers: true
-  preserve_page_metadata: true
+chunking:
+  data_factory:
+    strategy: "fixed"
+    chunk_size: 1500
+    chunk_overlap: 0
+
+  rag:
+    strategy: "sliding"
+    chunk_size: 1500
+    chunk_overlap: 150
 
 data_generation:
   questions_per_chunk: 10
-
-  categories:
-    hard_facts: 4
-    strategic_summaries: 4
-    stylistic_creative: 2
-
-  question_model: null
-  answer_model: null
-
-  temperature: 0.2
 
 dataset:
   train_ratio: 0.8
