@@ -3,7 +3,8 @@ import json
 from src.data_quality import (
     load_chunks,
     validate_chunk_offsets,
-    find_duplicate_chunk_ids
+    find_duplicate_chunk_ids,
+    audit_document
 )
 
 
@@ -42,10 +43,6 @@ def test_validate_chunk_offsets():
 
     assert not validate_chunk_offsets(invalid_chunk, page_text)
 
-
-
-
-
 def test_duplicate_ids():
     chunks = [
         {"chunk_id": "c1"},
@@ -57,7 +54,6 @@ def test_duplicate_ids():
 
     assert find_duplicate_chunk_ids(chunks) == ["c1", "c2"]
 
-
 def test_no_duplicates():
     chunks = [
         {"chunk_id": "c1"},
@@ -65,7 +61,6 @@ def test_no_duplicates():
     ]
 
     assert find_duplicate_chunk_ids(chunks) == []
-
 
 def test_multiple_occurrences():
     chunks = [
@@ -76,6 +71,65 @@ def test_multiple_occurrences():
 
     assert find_duplicate_chunk_ids(chunks) == ["c1"]
 
-
 def test_empty_chunks():
     assert find_duplicate_chunk_ids([]) == []
+
+def test_valid_document():
+    page_text = "Uber Revenue"
+
+    chunks = [{
+        "chunk_id": "c1",
+        "page_number": 1,
+        "start_char": 0,
+        "end_char": len(page_text),
+        "text": page_text,
+    }]
+
+    report = audit_document(chunks, {1: page_text})
+
+    assert report["status"] == "PASS"
+    assert report["duplicate_ids"] == []
+    assert report["coverage_gaps"] == []
+
+def test_duplicate_document_chunks():
+    page_text = "Uber Revenue"
+
+    chunks = [
+        {
+            "chunk_id": "c1",
+            "page_number": 1,
+            "start_char": 0,
+            "end_char": 4,
+            "text": "Uber",
+        },
+        {
+            "chunk_id": "c1",
+            "page_number": 1,
+            "start_char": 5,
+            "end_char": 12,
+            "text": "Revenue",
+        },
+    ]
+
+    report = audit_document(chunks, {1: page_text})
+
+    assert report["status"] == "FAIL"
+    assert report["duplicate_ids"] == ["c1"]
+
+
+def test_oversized_chunk_detection():
+    page_text = "A"*1501
+    max_chunk_size=1500
+    chunks = [{
+        "chunk_id": "c1",
+        "page_number": 1,
+        "start_char": 0,
+        "end_char": len(page_text),
+        "text": page_text,
+    }]
+
+    report = audit_document(chunks, {1: page_text},max_chunk_size)
+
+    assert report["status"] == "FAIL"
+    assert report["oversized_chunks"] == ["c1"]
+  
