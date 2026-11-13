@@ -9,7 +9,6 @@ documents:
 
   files:
     - "uber_2024.pdf"
-    - "uber_2023.pdf"
 
 chunking:
   data_factory:
