@@ -22,6 +22,7 @@ chunking:
     chunk_overlap: 150
 
 data_generation:
+  model: "openai/gpt-4.1-mini"
   questions_per_chunk: 10
 
 dataset:

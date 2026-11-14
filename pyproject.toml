@@ -1,7 +1,7 @@
 [project]
 name = "financial-intelligence-platform"
 version = "0.1.0"
-description = "Add your description here"
+description = "PDF ingestion, quality auditing, and grounded financial question generation"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -12,6 +12,7 @@ dependencies = [
     "pandas>=2.2",
     "pdfplumber>=0.11.10",
     "pyarrow==26.0.0",
+    "pydantic>=2.0",
     "pymupdf>=1.24",
     "pytest>=8.0",
     "python-dotenv>=1.0",
@@ -24,3 +25,22 @@ dependencies = [
     "tqdm>=4.0",
     "weaviate-client>=4.0",
 ]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["financial_intelligence*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", "."]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]

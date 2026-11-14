@@ -16,6 +16,7 @@ numpy>=1.26
 
 # LLM API Integration
 litellm>=1.0
+pydantic>=2.0
 
 # Vector Database
 weaviate-client>=4.0

@@ -1,8 +1,7 @@
-
-from src.ingestion import (
+from financial_intelligence.ingestion.chunking import (
+    create_chunks,
     fixed_chunking,
     sliding_chunking,
-    create_chunks,
 )
 
 
@@ -12,9 +11,7 @@ def test_fixed_chunking():
     chunks = fixed_chunking(text, size=1500)
 
     assert len(chunks) == 3
-    assert [len(c["text"]) for c in chunks] == [
-        1500, 1500, 100
-    ]
+    assert [len(c["text"]) for c in chunks] == [1500, 1500, 100]
 
     # No overlap
     assert chunks[0]["end_char"] == chunks[1]["start_char"]
@@ -31,10 +28,7 @@ def test_sliding_chunking():
 
     assert len(chunks) > 2
 
-    assert (
-        chunks[1]["start_char"]
-        == chunks[0]["end_char"] - 150
-    )
+    assert chunks[1]["start_char"] == chunks[0]["end_char"] - 150
 
 
 def test_offsets():
@@ -44,15 +38,10 @@ def test_offsets():
         ("fixed", 0),
         ("sliding", 150),
     ]:
-        chunks = create_chunks(
-            text, strategy, 1500, overlap
-        )
+        chunks = create_chunks(text, strategy, 1500, overlap)
 
         for chunk in chunks:
-            assert (
-                text[chunk["start_char"]:chunk["end_char"]]
-                == chunk["text"]
-            )
+            assert text[chunk["start_char"] : chunk["end_char"]] == chunk["text"]
 
 
 def test_invalid_strategy():

@@ -1009,7 +1009,7 @@ wheels = [
 [[package]]
 name = "financial-intelligence-platform"
 version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "ipykernel" },
     { name = "jupyterlab" },
@@ -1019,6 +1019,7 @@ dependencies = [
     { name = "pandas" },
     { name = "pdfplumber" },
     { name = "pyarrow" },
+    { name = "pydantic" },
     { name = "pymupdf" },
     { name = "pytest" },
     { name = "python-dotenv" },
@@ -1041,6 +1042,7 @@ requires-dist = [
     { name = "pandas", specifier = ">=2.2" },
     { name = "pdfplumber", specifier = ">=0.11.10" },
     { name = "pyarrow", specifier = "==26.0.0" },
+    { name = "pydantic", specifier = ">=2.0" },
     { name = "pymupdf", specifier = ">=1.24" },
     { name = "pytest", specifier = ">=8.0" },
     { name = "python-dotenv", specifier = ">=1.0" },
