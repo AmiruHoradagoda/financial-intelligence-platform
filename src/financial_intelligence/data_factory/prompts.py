@@ -32,6 +32,20 @@ Rules:
     of supported content in a specified tone or format. Do not ask about
     the author's intent or style, invent a scenario, or add unsupported facts.
 
+For stylistic questions:
+- Every question MUST explicitly request an output format, tone, or audience.
+- Examples: executive summary, three bullet points, plain English, formal tone,
+  investor-friendly explanation.
+- Do not ask for definitions, literary interpretation, accounting theory,
+  or general knowledge.
+- Only transform information explicitly present in the excerpt.
+- Refer to the provided excerpt, not the entire report, when the chunk contains
+  only part of a section.
+
+For all categories:
+- Avoid questions that test the same fact repeatedly.
+- Do not ask about information cut off at chunk boundaries.
+
 Required JSON structure:
 {{
   "questions": [

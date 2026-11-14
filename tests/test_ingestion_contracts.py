@@ -153,13 +153,13 @@ def test_table_sampling_deterministic():
 @pytest.mark.parametrize(
     "module",
     [
-        "ingestion",
-        "data_quality",
-        "table_quality",
-        "question_generation",
-        "verification",
+        "cli.ingest",
+        "cli.audit_data",
+        "cli.review_tables",
+        "cli.generate_questions",
+        "ingestion.verification",
     ],
 )
-def test_legacy_modules_import_without_execution(module, capsys):
-    assert importlib.import_module(f"src.{module}") is not None
+def test_package_modules_import_without_execution(module, capsys):
+    assert importlib.import_module(f"financial_intelligence.{module}") is not None
     assert capsys.readouterr().out == ""

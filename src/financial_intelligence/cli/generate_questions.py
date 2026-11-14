@@ -24,11 +24,27 @@ def main() -> None:
 
     chunks = load_chunks(chunks_path)
 
-    # Preview only: skip very short chunks.
-    sample_chunks = [chunk for chunk in chunks if len(chunk["text"].strip()) >= 500][:2]
+    pilot_chunk_ids = [
+    "uber_2024_data_factory_p2_c0",   # Mission statement
+    "uber_2024_data_factory_p18_c0",  # Gross Bookings narrative
+    "uber_2024_data_factory_p57_c1",  # Results of Operations
+    ]
 
-    output_path = PROJECT_ROOT / "data/generated/questions_preview.jsonl"
+    chunks_by_id = {
+        chunk["chunk_id"]: chunk
+        for chunk in chunks
+    }
 
+    sample_chunks = [
+        chunks_by_id[chunk_id]
+        for chunk_id in pilot_chunk_ids
+    ]
+
+    # output_path = PROJECT_ROOT / "data/generated/questions_preview.jsonl"
+    output_path = (
+        PROJECT_ROOT
+        / "data/generated/questions_quality_pilot.jsonl"
+    )
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     with output_path.open("w", encoding="utf-8") as file:

@@ -42,9 +42,8 @@ output files when explicitly run; the test suite uses temporary files and fakes.
 
 Equivalent thin script entry points are available as `uv run scripts/ingest.py`,  
 `uv run scripts/audit_data.py`, `uv run scripts/review_tables.py`, and  
-`uv run scripts/generate_questions.py`. Legacy imports and commands such as  
-`uv run python -m src.ingestion` continue to work in the checkout after setup.  
-New code should import `financial_intelligence`.
+`uv run scripts/generate_questions.py`. Import from `financial_intelligence` and  
+use the package commands above; the previous `src.*` modules have been removed.
 
 ## Package layout
 
