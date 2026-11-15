@@ -175,8 +175,7 @@ def test_exact_quote_preserves_newlines_and_stylistic_format(chunk, question):
     }
     client = FakeLLM(answer)
     assert validate_grounded_answer(answer, chunk["text"]).model_dump() == answer
-    with pytest.raises(AnswerabilityReviewRequired):
-        AnswerGenerator(client, "model").generate(question, chunk)
+    assert AnswerGenerator(client, "model").generate(question, chunk) == answer
     assert question["question"] in client.calls[0]["prompt"]
 
 
@@ -987,7 +986,7 @@ def test_cli_normal_run_skips_failures_and_reports_progress(
         "Failed this run: 0",
         "Unattempted: 4",
         "Unresolved failed: 2",
-        "Remaining (including failed): 6",
+        "Remaining (including failed/review): 6",
     ]:
         assert line in output
     assert len(client.calls) == 4
@@ -1076,9 +1075,7 @@ def test_unrelated_verbatim_evidence_does_not_support_an_answer():
         "is_answerable": True,
         "evidence_quote": "Revenue was $10 million.",
     }
-    with pytest.raises(
-        AnswerabilityReviewRequired, match="nonextractive_answer_requires_review"
-    ):
+    with pytest.raises(AnswerabilityReviewRequired, match="unsupported_numeric_claim"):
         validate_grounded_answer(response, source, question="What were costs?")
 
 
@@ -1090,7 +1087,7 @@ def test_partial_support_for_multi_claim_question_requires_review():
         "evidence_quote": "Revenue was $10 million.",
     }
     with pytest.raises(
-        AnswerabilityReviewRequired, match="multi_claim_request_requires_review"
+        AnswerabilityReviewRequired, match="incomplete_question_coverage"
     ):
         validate_grounded_answer(
             response, source, question="What were revenue and costs?"
@@ -1125,14 +1122,20 @@ def test_semantically_unsafe_checkpoint_and_export_are_preserved(
     new_path.write_text(json.dumps(saved), encoding="utf-8")
     before = new_path.read_bytes()
     original_export = output.read_bytes()
-    with pytest.raises(AnswerabilityReviewRequired):
-        batch.run_answer_batch(
-            [question], [chunk], generator, tmp_path, output_path=output
-        )
-    with pytest.raises(AnswerabilityReviewRequired):
+    result = batch.run_answer_batch(
+        [question], [chunk], generator, tmp_path, dry_run=True
+    )
+    assert result["review_required"] == 1
+    assert result["planned"] == result["completed_total"] == 0
+    assert not (tmp_path / "review_required.jsonl").exists()
+    training_output = tmp_path / "training_ready.jsonl"
+    assert (
         batch.export_answer_records(
-            [question], [chunk], generator.model, tmp_path, output
+            [question], [chunk], generator.model, tmp_path, training_output
         )
+        == 0
+    )
+    assert training_output.read_text(encoding="utf-8") == ""
     assert len(client.calls) == 1
     assert new_path.read_bytes() == before
     assert output.read_bytes() == original_export
@@ -1146,9 +1149,162 @@ def test_unsupported_causal_generation_is_logged_for_review_not_unanswerable(
     result = batch.run_answer_batch(
         [question], [chunk], AnswerGenerator(client, "model"), tmp_path
     )
-    assert result["failed"] == 1
+    assert result["review_required"] == result["review_new"] == 1
+    assert result["failed"] == 0
     assert result["generated"] == result["unanswerable"] == 0
-    failure = load_chunks(tmp_path / "failures.jsonl")[0]
-    assert failure["failure_kind"] == "semantic_review_required"
-    assert failure["review_reason"] == "causal_request_requires_review"
-    assert not list(tmp_path.glob("*.json"))
+    review = load_chunks(tmp_path / "review_required.jsonl")[0]
+    assert review["review_status"] == "required"
+    assert review["review_reason"] == "causal_request_requires_review"
+    assert review["record"]["answer"] == answer["answer"]
+    assert not (tmp_path / "failures.jsonl").exists()
+    result = batch.run_answer_batch(
+        [question], [chunk], AnswerGenerator(client, "model"), tmp_path
+    )
+    assert result["review_required"] == 1
+    assert result["planned"] == 0
+    assert len(client.calls) == 1
+
+
+@pytest.mark.parametrize(
+    "category,question",
+    [
+        ("hard_fact", "What impact might lower Delivery fees have on Revenue Margin?"),
+        (
+            "strategic_summary",
+            "Summarize the effect of lower Delivery fees on Revenue Margin.",
+        ),
+        (
+            "stylistic",
+            "Give a plain-English explanation of the lower Delivery fee risk.",
+        ),
+    ],
+)
+def test_grounded_paraphrases_do_not_require_extractive_answers(category, question):
+    source = (
+        "Further, we may charge a lower service fee to certain merchant partners on our Delivery "
+        "offering, which may result in a negative Revenue Margin."
+    )
+    response = {
+        "answer": "Lower Delivery fees may result in a negative Revenue Margin.",
+        "is_answerable": True,
+        "evidence_quote": source,
+    }
+    assert response["answer"] not in source
+    assert (
+        validate_grounded_answer(response, source, question=question).model_dump()
+        == response
+    )
+
+
+def test_review_checkpoint_does_not_block_other_work_or_dry_run(
+    tmp_path, chunk, questions, answer
+):
+    questions = questions[:5]
+    questions[1]["question"] = "Why did revenue increase?"
+    client = FakeLLM(answer)
+    generator = AnswerGenerator(client, "model")
+    original_export = tmp_path / "previous_qa.jsonl"
+    batch.run_answer_batch(
+        questions[:1], [chunk], generator, tmp_path, output_path=original_export
+    )
+    first = next(tmp_path.glob("*.json"))
+    saved = json.loads(first.read_text(encoding="utf-8"))
+    review_id = batch._question_id(questions[1])
+    saved["question_id"] = review_id
+    saved["metadata"] = batch._metadata(questions[1], chunk, generator.model)
+    saved["record"]["question"] = questions[1]["question"]
+    legacy_review_path = tmp_path / f"{review_id}.json"
+    legacy_review_path.write_text(json.dumps(saved), encoding="utf-8")
+    failure_path = tmp_path / "failures.jsonl"
+    failure_path.write_text(
+        json.dumps({"question_id": batch._question_id(questions[2])}) + "\n",
+        encoding="utf-8",
+    )
+    originals = {
+        path: path.read_bytes()
+        for path in [first, legacy_review_path, failure_path, original_export]
+    }
+    dry = batch.run_answer_batch(questions, [chunk], generator, tmp_path, dry_run=True)
+    assert (
+        dry["completed_total"] == dry["review_required"] == dry["failed_pending"] == 1
+    )
+    assert dry["unattempted"] == dry["planned"] == 2
+    assert dry["remaining"] == 4
+    assert len(client.calls) == 1
+    assert not (tmp_path / "review_required.jsonl").exists()
+
+    training_output = tmp_path / "training_ready.jsonl"
+    result = batch.run_answer_batch(
+        questions, [chunk], generator, tmp_path, output_path=training_output
+    )
+    assert result["generated"] == 2
+    assert result["completed_total"] == 3
+    assert result["review_required"] == result["failed_pending"] == 1
+    assert result["unattempted"] == 0
+    assert result["remaining"] == 2
+    assert (
+        result["remaining"]
+        == result["review_required"] + result["failed_pending"] + result["unattempted"]
+    )
+    assert len(client.calls) == 3
+    rows = load_chunks(training_output)
+    assert len(rows) == 3 and all(
+        row["question"] != questions[1]["question"] for row in rows
+    )
+    review = load_chunks(tmp_path / "review_required.jsonl")[0]
+    assert review["question_id"] == review_id
+    assert review["record"] == saved["record"]
+    assert review["review_status"] == "required"
+    assert all(path.read_bytes() == content for path, content in originals.items())
+
+    retry = batch.run_answer_batch(
+        questions, [chunk], generator, tmp_path, retry_failed_only=True
+    )
+    assert retry["generated"] == 1
+    assert retry["review_required"] == retry["remaining"] == 1
+    assert len(client.calls) == 4
+
+
+def test_review_record_requires_explicit_bound_approval_before_training_export(
+    tmp_path, chunk, question, answer
+):
+    chunk["text"] = "Revenue increased because demand grew."
+    question["question"] = "Why did revenue increase?"
+    answer.update(answer="Because demand grew.", evidence_quote=chunk["text"])
+    client = FakeLLM(answer)
+    generator = AnswerGenerator(client, "model")
+    result = batch.run_answer_batch([question], [chunk], generator, tmp_path)
+    assert result["review_required"] == 1
+    checkpoint = next(tmp_path.glob("*.json"))
+    original_checkpoint = checkpoint.read_bytes()
+    output = tmp_path / "training_ready.jsonl"
+    assert (
+        batch.export_answer_records(
+            [question], [chunk], generator.model, tmp_path, output
+        )
+        == 0
+    )
+    reviews_path = tmp_path / "review_required.jsonl"
+    review = load_chunks(reviews_path)[0]
+    review.update(
+        review_status="approved",
+        reviewed_by="offline-test-reviewer",
+        review_notes="Checked the explicitly stated cause against the original source.",
+    )
+    reviews_path.write_text(json.dumps(review) + "\n", encoding="utf-8")
+    assert (
+        batch.export_answer_records(
+            [question], [chunk], generator.model, tmp_path, output
+        )
+        == 1
+    )
+    assert checkpoint.read_bytes() == original_checkpoint
+    assert len(client.calls) == 1
+    # Approval cannot bypass the exact-evidence check.
+    saved = json.loads(original_checkpoint)
+    saved["record"]["evidence_quote"] = "An invented quote."
+    checkpoint.write_text(json.dumps(saved), encoding="utf-8")
+    with pytest.raises(ValueError, match="incompatible"):
+        batch.export_answer_records(
+            [question], [chunk], generator.model, tmp_path, output
+        )

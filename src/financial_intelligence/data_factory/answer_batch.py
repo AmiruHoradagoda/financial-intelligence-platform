@@ -47,6 +47,13 @@ def _metadata(question: dict, chunk: dict, model: str) -> dict:
     }
 
 
+def _compatible_metadata(actual, expected, allowed_prompt_fingerprints) -> bool:
+    actual = dict(actual)
+    if actual.get("prompt_fingerprint") in allowed_prompt_fingerprints:
+        actual["prompt_fingerprint"] = expected["prompt_fingerprint"]
+    return actual == expected
+
+
 def _prepare(questions: list[dict], chunks: list[dict]) -> tuple[list, int]:
     """Validate the join and deduplicate questions before any spending or writes."""
     by_chunk = {}
@@ -102,11 +109,15 @@ def _read_checkpoint(
         record = QAPairRecord.model_validate(saved["record"]).model_dump()
         if any(record[key] != value for key, value in question.items()):
             raise ValueError("original question metadata changed")
+        answer_data = {key: record.get(key) for key in AnswerResponse.model_fields}
+        validate_grounded_answer(answer_data, chunk["text"])
         validate_grounded_answer(
-            {key: record[key] for key in AnswerResponse.model_fields},
-            chunk["text"],
-            question=question["question"],
+            answer_data, chunk["text"], question=question["question"]
         )
+        if saved.get("review_required"):
+            raise AnswerabilityReviewRequired(
+                saved["review_reason"], answer=answer_data
+            )
         if allowed_prior_prompt:
             print(
                 f"Reused validated prior-prompt checkpoint: {path.name} ({prior_prompt})"
@@ -115,7 +126,12 @@ def _read_checkpoint(
     except AnswerabilityReviewRequired as error:
         # A valid schema/fingerprint can still need semantic review. Preserve the
         # file and report that distinction instead of claiming metadata corruption.
-        raise AnswerabilityReviewRequired(error.reason, checkpoint=path.name) from error
+        raise AnswerabilityReviewRequired(
+            error.reason,
+            checkpoint=path.name,
+            answer=error.answer,
+            approval_blocked=error.approval_blocked,
+        ) from error
     except (ValueError, KeyError, TypeError) as error:
         raise ValueError(
             f"Invalid or incompatible answer checkpoint {path}. "
@@ -133,6 +149,132 @@ def _export(prepared: list, completed: dict, output_path: Path) -> int:
     return len(completed)
 
 
+def _review_entry(question_id, question, chunk, model, error) -> dict:
+    answer = validate_grounded_answer(error.answer, chunk["text"])
+    return {
+        "question_id": question_id,
+        "metadata": _metadata(question, chunk, model),
+        "record": QAPairRecord.model_validate(
+            {**question, **answer.model_dump()}
+        ).model_dump(),
+        "review_required": True,
+        "review_status": "required",
+        "review_reason": error.reason,
+        "approval_blocked": error.approval_blocked,
+    }
+
+
+def _collect_checkpoints(prepared, model, checkpoint_dir, allowed_prompt_fingerprints):
+    review_path = checkpoint_dir / "review_required.jsonl"
+    registry = (
+        {row["question_id"]: row for row in load_chunks(review_path)}
+        if review_path.exists()
+        else {}
+    )
+    decision_path = checkpoint_dir / "review_decisions.jsonl"
+    decisions = (
+        {r["question_id"]: r for r in load_chunks(decision_path)}
+        if decision_path.exists()
+        else {}
+    )
+    completed, reviews, pending = {}, {}, []
+    for question_id, question, chunk in prepared:
+        path = checkpoint_dir / f"{question_id}.json"
+        if not path.exists():
+            pending.append((question_id, question, chunk, path))
+            continue
+        try:
+            record = _read_checkpoint(
+                path, question, chunk, model, allowed_prompt_fingerprints
+            )
+        except AnswerabilityReviewRequired as error:
+            current_review = _review_entry(question_id, question, chunk, model, error)
+            record = current_review["record"]
+        else:
+            current_review = None
+        decision = decisions.get(question_id)
+        if decision:
+            if (
+                decision.get("checkpoint_sha256")
+                != hashlib.sha256(path.read_bytes()).hexdigest()
+                or decision.get("decision") not in ("approve", "reject")
+                or not all(
+                    isinstance(decision.get(k), str) and decision[k].strip()
+                    for k in ("reviewer", "notes")
+                )
+            ):
+                raise ValueError(f"Invalid or stale review decision: {question_id}")
+            if decision["decision"] == "approve" and not (
+                current_review and current_review.get("approval_blocked")
+            ):
+                completed[question_id] = record
+                print(f"Reused offline-approved record: {question_id}")
+                continue
+            reviews[question_id] = {
+                **(
+                    current_review
+                    or registry.get(question_id)
+                    or {
+                        "question_id": question_id,
+                        "metadata": _metadata(question, chunk, model),
+                        "record": record,
+                        "review_reason": "offline_source_review",
+                    }
+                ),
+                "review_status": "rejected"
+                if decision["decision"] == "reject"
+                else "required",
+            }
+            continue
+        if question_id in registry:
+            saved_review = registry[question_id]
+            if (
+                not _compatible_metadata(
+                    saved_review["metadata"],
+                    _metadata(question, chunk, model),
+                    allowed_prompt_fingerprints,
+                )
+                or saved_review["record"] != record
+            ):
+                raise ValueError(
+                    f"Review record changed: {question_id}; explicit review required"
+                )
+            if saved_review.get("review_status") == "approved" and not (
+                current_review and current_review.get("approval_blocked")
+            ):
+                if not all(
+                    isinstance(saved_review.get(key), str) and saved_review[key].strip()
+                    for key in ("reviewed_by", "review_notes")
+                ):
+                    raise ValueError(
+                        f"Approval requires reviewer and notes: {question_id}"
+                    )
+                completed[question_id] = record
+                print(f"Reused explicitly approved review record: {question_id}")
+            else:
+                reviews[question_id] = saved_review
+        elif current_review is not None:
+            reviews[question_id] = current_review
+        else:
+            completed[question_id] = record
+    return completed, reviews, pending
+
+
+def _persist_reviews(checkpoint_dir: Path, reviews: dict) -> None:
+    if not reviews:
+        return
+    path = checkpoint_dir / "review_required.jsonl"
+    existing = {r["question_id"]: r for r in load_chunks(path)} if path.exists() else {}
+    # Preserve review entries for questions outside this invocation's input.
+    existing.update(reviews)
+    atomic_write(
+        path,
+        "".join(
+            json.dumps(row, ensure_ascii=False) + "\n" for row in existing.values()
+        ),
+    )
+
+
 def export_answer_records(
     questions: list[dict],
     chunks: list[dict],
@@ -144,13 +286,14 @@ def export_answer_records(
 ) -> int:
     """Rebuild an export from compatible, revalidated checkpoints without API calls."""
     prepared, _ = _prepare(questions, chunks)
-    completed = {}
-    for question_id, question, chunk in prepared:
-        path = checkpoint_dir / f"{question_id}.json"
-        if path.exists():
-            completed[question_id] = _read_checkpoint(
-                path, question, chunk, model, allowed_prompt_fingerprints
-            )
+    completed, reviews, _ = _collect_checkpoints(
+        prepared, model, checkpoint_dir, allowed_prompt_fingerprints
+    )
+    _persist_reviews(checkpoint_dir, reviews)
+    for question_id, review in reviews.items():
+        print(
+            f"Excluded from training export for review: {question_id} ({review['review_reason']})"
+        )
     return _export(prepared, completed, output_path)
 
 
@@ -178,16 +321,9 @@ def run_answer_batch(
     if not 1 <= max_attempts <= 3:
         raise ValueError("max_attempts must be between 1 and 3")
     prepared, duplicates = _prepare(questions, chunks)
-    pending = []
-    completed = {}
-    for question_id, question, chunk in prepared:
-        path = checkpoint_dir / f"{question_id}.json"
-        if path.exists():
-            completed[question_id] = _read_checkpoint(
-                path, question, chunk, generator.model, allowed_prompt_fingerprints
-            )
-        else:
-            pending.append((question_id, question, chunk, path))
+    completed, reviews, pending = _collect_checkpoints(
+        prepared, generator.model, checkpoint_dir, allowed_prompt_fingerprints
+    )
     failure_path = checkpoint_dir / "failures.jsonl"
     failures = load_chunks(failure_path) if failure_path.exists() else []
     failed_ids = {
@@ -206,7 +342,16 @@ def run_answer_batch(
         "failed": 0,
         "attempted": 0,
         "planned": min(len(candidates), max_new_questions),
-        "remaining": len(pending),
+        "remaining": len(pending) + len(reviews),
+        "review_required": len(reviews),
+        "review_new": 0,
+        "rejected": sum(
+            row.get("review_status") == "rejected" for row in reviews.values()
+        ),
+        "review_records": [
+            {"question_id": key, "reason": row["review_reason"]}
+            for key, row in reviews.items()
+        ],
         "skipped_failed": 0 if retry_failed_only else failed_pending,
         "failed_pending": failed_pending,
         "unattempted": len(pending) - failed_pending,
@@ -231,6 +376,21 @@ def run_answer_batch(
                 record = QAPairRecord.model_validate(
                     {**question, **answer.model_dump()}
                 ).model_dump()
+            except AnswerabilityReviewRequired as error:
+                review = _review_entry(
+                    question_id, question, chunk, generator.model, error
+                )
+                atomic_write(path, json.dumps(review, ensure_ascii=False, indent=2))
+                reviews[question_id] = review
+                result["review_required"] += 1
+                result["review_new"] += 1
+                result["review_records"].append(
+                    {"question_id": question_id, "reason": error.reason}
+                )
+                if question_id in failed_ids:
+                    result["failed_pending"] -= 1
+                print(f"Held for review: {question_id} ({error.reason})")
+                break
             except Exception as error:
                 if is_transient_error(error) and attempt < max_attempts:
                     time.sleep(2 ** (attempt - 1))
@@ -243,9 +403,7 @@ def run_answer_batch(
                     "attempts": attempt,
                     "error_type": type(error).__name__,
                     "failure_kind": (
-                        "semantic_review_required"
-                        if isinstance(error, AnswerabilityReviewRequired)
-                        else "validation_failure"
+                        "validation_failure"
                         if isinstance(error, (InvalidLLMResponse, ValidationError))
                         else "api_failure"
                         if is_transient_error(error)
@@ -262,8 +420,6 @@ def run_answer_batch(
                 }
                 if isinstance(error, EvidenceQuoteMismatch):
                     failure["evidence_diagnostics"] = error.diagnostics
-                if isinstance(error, AnswerabilityReviewRequired):
-                    failure["review_reason"] = error.reason
                 checkpoint_dir.mkdir(parents=True, exist_ok=True)
                 with (checkpoint_dir / "failures.jsonl").open(
                     "a", encoding="utf-8"
@@ -297,6 +453,7 @@ def run_answer_batch(
                 result["unanswerable"] += int(not record["is_answerable"])
                 print(f"Completed: {question_id}")
                 break
+    _persist_reviews(checkpoint_dir, reviews)
     if output_path is not None:
         result["exported"] = _export(prepared, completed, output_path)
     return result

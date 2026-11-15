@@ -6,6 +6,7 @@ import re
 from pydantic import ValidationError
 
 from financial_intelligence.data_factory.prompts import build_answer_prompt
+from financial_intelligence.data_factory.table_context import table_support
 from financial_intelligence.data_factory.validation import parse_llm_json
 from financial_intelligence.infrastructure.llm_client import (
     InvalidLLMResponse,
@@ -62,35 +63,156 @@ class EvidenceQuoteMismatch(InvalidLLMResponse):
 class AnswerabilityReviewRequired(InvalidLLMResponse):
     """Exact evidence exists, but automatic semantic acceptance is unsafe."""
 
-    def __init__(self, reason: str, *, checkpoint: str | None = None) -> None:
+    def __init__(
+        self,
+        reason: str,
+        *,
+        checkpoint: str | None = None,
+        answer: dict | None = None,
+        approval_blocked: bool = False,
+    ) -> None:
         context = f"; checkpoint {checkpoint} preserved" if checkpoint else ""
         super().__init__(f"Answer requires source review: {reason}{context}")
         self.reason = reason
+        self.answer = answer
+        self.approval_blocked = approval_blocked
 
 
-def _check_answer_support(question: str, answer: AnswerResponse) -> None:
-    """Conservative triage, not an entailment model or automatic causal inference.
+def _check_answer_support(question: str, answer: AnswerResponse, text: str) -> None:
+    """Flag observable grounding risks while permitting paraphrases.
 
-    Causal requests need review even when another sentence contains 'because':
-    lexical causal markers cannot establish the requested causal relationship.
-    Nonextractive responses also need review; a matching quote alone is insufficient.
+    These lexical checks are triage, not semantic entailment or a quality score.
+    Whitespace/token normalization never admits or modifies an evidence quote.
     """
     if not answer.is_answerable:
         return
+
+    def review(reason: str) -> None:
+        raise AnswerabilityReviewRequired(
+            reason,
+            answer=answer.model_dump(),
+            approval_blocked=reason
+            in {
+                "incomplete_source_boundary",
+                "table_row_mismatch",
+                "table_unit_mismatch",
+                "table_year_value_mismatch",
+                "table_change_direction_mismatch",
+                "unsupported_numeric_claim",
+                "unsupported_financial_unit",
+            },
+        )
+
+    quotes = evidence_spans(answer)
+    evidence = "\n".join(quotes)  # Support checks only; never a persisted quote.
+    response = answer.answer
+    tail = re.search(r"([A-Za-z]{2,})$", text.rstrip())
+    ending = re.search(r"([A-Za-z]{2,})[.!?]?$", response.rstrip())
+    if (
+        tail
+        and ending
+        and tail[1] == ending[1]
+        and len(response) > 30
+        and any(text.rstrip().endswith(quote.rstrip()) for quote in quotes)
+    ):
+        review("incomplete_source_boundary")
+    if re.search(
+        r"(?:entire|whole).*\bsection\b|(?:rewrite|summarize).*results of operations['\"]?\s+section",
+        question,
+        re.I,
+    ) and re.search(r"\(in\s+millions\)", text, re.I):
+        review("question_scope_exceeds_excerpt")
+
     if re.search(
         r"\b(?:why|reasons?|caus(?:e|es|ed|ing)|explain\s+how)\b", question, re.I
     ):
-        raise AnswerabilityReviewRequired("causal_request_requires_review")
-    if re.search(
-        r"\b(?:summari[sz]e|summary|compare|comparison|both|and)\b", question, re.I
+        # An unrelated 'because' elsewhere cannot establish the requested cause.
+        review("causal_request_requires_review")
+
+    stopwords = set(
+        "a an the is are was were be been being to of in on at for from with as by "
+        "and or that this these those it its our their they we you which who what "
+        "how does do did has have had can could may might will would should not "
+        "according excerpt provided source report company describe described "
+        "summarize summary explain explanation provide give rewrite present "
+        "plain english formal tone investor friendly audience executive concise "
+        "bullet points question request".split()
+    )
+
+    def terms(value: str) -> set[str]:
+        words = re.findall(r"[a-z]+", value.casefold())
+        # Basic plural equivalence, not fuzzy evidence matching.
+        return {
+            word[:-3] + "y"
+            if word.endswith("ies") and len(word) > 4
+            else word[:-1]
+            if word.endswith("s") and not word.endswith("ss") and len(word) > 3
+            else word
+            for word in words
+            if word not in stopwords
+        }
+
+    def numbers(value: str) -> set[str]:
+        return {
+            number.replace(",", "") for number in re.findall(r"\d+(?:[,.]\d+)*", value)
+        }
+
+    header_numbers, header_units, table_error = table_support(
+        text, quotes, question, response
+    )
+    if table_error:
+        review(table_error)
+    if header_numbers and re.search(
+        r"\b(?:because|due to|driven by|as a result of)\b", response, re.I
     ):
-        raise AnswerabilityReviewRequired("multi_claim_request_requires_review")
-    # This normalization is ONLY for answer/evidence coverage, never for admitting
-    # or changing an evidence quote. Even extractive coverage is not full entailment.
-    response = " ".join(answer.answer.casefold().split())
-    evidence = " ".join(answer.evidence_quote.casefold().split())
-    if response not in evidence:
-        raise AnswerabilityReviewRequired("nonextractive_answer_requires_review")
+        review("unstated_table_cause")
+    if not numbers(response) <= numbers(evidence) | header_numbers:
+        review("unsupported_numeric_claim")
+    units = {"million", "billion", "trillion", "percent"}
+    if not terms(response).intersection(units) <= terms(evidence) | header_units:
+        review("unsupported_financial_unit")
+    evidence_terms = terms(evidence)
+    topics = terms(question).intersection(terms(text))
+    if topics and not topics.intersection(evidence_terms):
+        review("evidence_does_not_address_question")
+    multi_topic = re.search(r"\b(?:and|both|compare|comparison)\b", question, re.I)
+    if (
+        multi_topic
+        and not header_numbers
+        and len(topics) >= 2
+        and not topics <= terms(response)
+    ):
+        review("incomplete_question_coverage")
+    if (
+        re.search(r"\bdelivery\b", question, re.I)
+        and not re.search(r"\b(?:cities|products)\b", question, re.I)
+        and re.search(r"\bnew (?:cities|products)\b", response, re.I)
+    ):
+        review("answer_scope_drift")
+    if (
+        re.search(r"\bnew cities\b", question, re.I)
+        and not re.search(r"\bdelivery\b", question, re.I)
+        and re.search(r"\b(?:delivery|service fees|carriers)\b", response, re.I)
+    ):
+        review("answer_scope_drift")
+    for sentence in re.split(r"[.!?](?:\s|$)", response):
+        if header_numbers and numbers(sentence):
+            # Table amounts/years/units were checked against quoted rows plus
+            # their original header; answers need not repeat the row label.
+            continue
+        claims = terms(sentence)
+        if (
+            len(claims) >= 2
+            and len(claims.intersection(evidence_terms)) / len(claims) < 0.35
+        ):
+            review("answer_evidence_topic_mismatch")
+
+
+def evidence_spans(answer: AnswerResponse) -> list[str]:
+    """Return separate supplied quotes; never stitch them into stored evidence."""
+    return ([answer.evidence_quote] if answer.evidence_quote is not None else []) + (
+        answer.evidence_quotes or []
+    )
 
 
 def validate_grounded_answer(
@@ -105,14 +227,21 @@ def validate_grounded_answer(
         raise InvalidLLMResponse(
             "Invalid answer response: schema validation failed"
         ) from error
-    if answer.is_answerable and answer.evidence_quote not in text:
-        raise EvidenceQuoteMismatch(answer.evidence_quote, text)
+    for quote in evidence_spans(answer):
+        if quote not in text:
+            raise EvidenceQuoteMismatch(quote, text)
     if answer.is_answerable:
         # Save the actual original source slice, never a normalized reconstruction.
-        start = text.index(answer.evidence_quote)
-        answer.evidence_quote = text[start : start + len(answer.evidence_quote)]
+        if answer.evidence_quote is not None:
+            start = text.index(answer.evidence_quote)
+            answer.evidence_quote = text[start : start + len(answer.evidence_quote)]
+        if answer.evidence_quotes is not None:
+            answer.evidence_quotes = [
+                text[text.index(q) : text.index(q) + len(q)]
+                for q in answer.evidence_quotes
+            ]
     if question is not None:
-        _check_answer_support(question, answer)
+        _check_answer_support(question, answer, text)
     return answer
 
 

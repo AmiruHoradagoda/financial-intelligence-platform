@@ -16,6 +16,7 @@ from financial_intelligence.infrastructure.llm_client import LiteLLMClient
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--max-new-questions", type=int, default=5)
+    parser.add_argument("--max-attempts", type=int, choices=(1, 2, 3), default=3)
     parser.add_argument(
         "--retry-failed",
         action="store_true",
@@ -89,6 +90,7 @@ def main(argv: list[str] | None = None) -> None:
             generator,
             args.checkpoint_dir,
             max_new_questions=args.max_new_questions,
+            max_attempts=args.max_attempts,
             dry_run=args.dry_run,
             output_path=args.output,
             allowed_prompt_fingerprints=tuple(args.allow_prompt_fingerprint),
@@ -107,7 +109,11 @@ def main(argv: list[str] | None = None) -> None:
     print(f"Duplicate questions skipped: {result['duplicates']}")
     print(f"Failed this run: {result['failed']}")
     print(f"Completed total: {result['completed_total']}")
-    print(f"Remaining (including failed): {result['remaining']}")
+    print(f"Review required: {result['review_required']}")
+    print(f"Rejected by source review: {result['rejected']}")
+    for review in result["review_records"]:
+        print(f"Review: {review['question_id']} ({review['reason']})")
+    print(f"Remaining (including failed/review): {result['remaining']}")
     print(f"Unattempted: {result['unattempted']}")
     print(f"Unresolved failed: {result['failed_pending']}")
     if not args.dry_run:
