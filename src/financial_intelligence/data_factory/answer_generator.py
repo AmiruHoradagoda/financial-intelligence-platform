@@ -59,8 +59,44 @@ class EvidenceQuoteMismatch(InvalidLLMResponse):
         self.diagnostics = _quote_diagnostics(quote, text)
 
 
-def validate_grounded_answer(data: dict, text: str) -> AnswerResponse:
-    """Check the response contract and verbatim evidence, not semantic entailment."""
+class AnswerabilityReviewRequired(InvalidLLMResponse):
+    """Exact evidence exists, but automatic semantic acceptance is unsafe."""
+
+    def __init__(self, reason: str, *, checkpoint: str | None = None) -> None:
+        context = f"; checkpoint {checkpoint} preserved" if checkpoint else ""
+        super().__init__(f"Answer requires source review: {reason}{context}")
+        self.reason = reason
+
+
+def _check_answer_support(question: str, answer: AnswerResponse) -> None:
+    """Conservative triage, not an entailment model or automatic causal inference.
+
+    Causal requests need review even when another sentence contains 'because':
+    lexical causal markers cannot establish the requested causal relationship.
+    Nonextractive responses also need review; a matching quote alone is insufficient.
+    """
+    if not answer.is_answerable:
+        return
+    if re.search(
+        r"\b(?:why|reasons?|caus(?:e|es|ed|ing)|explain\s+how)\b", question, re.I
+    ):
+        raise AnswerabilityReviewRequired("causal_request_requires_review")
+    if re.search(
+        r"\b(?:summari[sz]e|summary|compare|comparison|both|and)\b", question, re.I
+    ):
+        raise AnswerabilityReviewRequired("multi_claim_request_requires_review")
+    # This normalization is ONLY for answer/evidence coverage, never for admitting
+    # or changing an evidence quote. Even extractive coverage is not full entailment.
+    response = " ".join(answer.answer.casefold().split())
+    evidence = " ".join(answer.evidence_quote.casefold().split())
+    if response not in evidence:
+        raise AnswerabilityReviewRequired("nonextractive_answer_requires_review")
+
+
+def validate_grounded_answer(
+    data: dict, text: str, *, question: str | None = None
+) -> AnswerResponse:
+    """Check exact evidence and, when supplied, conservative question-aware support."""
     try:
         answer = AnswerResponse.model_validate(data)
     except ValidationError as error:
@@ -71,6 +107,12 @@ def validate_grounded_answer(data: dict, text: str) -> AnswerResponse:
         ) from error
     if answer.is_answerable and answer.evidence_quote not in text:
         raise EvidenceQuoteMismatch(answer.evidence_quote, text)
+    if answer.is_answerable:
+        # Save the actual original source slice, never a normalized reconstruction.
+        start = text.index(answer.evidence_quote)
+        answer.evidence_quote = text[start : start + len(answer.evidence_quote)]
+    if question is not None:
+        _check_answer_support(question, answer)
     return answer
 
 
@@ -104,5 +146,5 @@ class AnswerGenerator:
             prompt=build_answer_prompt(chunk["text"], record.question, record.category),
         )
         return validate_grounded_answer(
-            parse_llm_json(content), chunk["text"]
+            parse_llm_json(content), chunk["text"], question=record.question
         ).model_dump()

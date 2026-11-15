@@ -275,6 +275,103 @@ have historical failures, and never fills the limit with untried questions.
 Missing failure logs select no questions. Keep the explicit prior fingerprint on
 subsequent resume/export commands while that directory contains the old successes.
 
+## Two-chunk financial end-to-end pilot
+
+Use `financial_intelligence.cli.batch_generate_questions --chunk-ids` to select
+only `uber_2024_data_factory_p57_c1` (financial table) and
+`uber_2024_data_factory_p18_c0` (margin and profitability risks), in that order.
+Duplicate or unknown IDs are rejected before provider calls. The original fixed
+pilot command remains unchanged. Targeted generation requires a separate output
+path and refuses the original question/answer pilot filenames in `data/generated/`.
+
+Preview the selected two chunks without calls or writes:
+
+```powershell
+uv run python -m financial_intelligence.cli.batch_generate_questions --chunk-ids uber_2024_data_factory_p57_c1 uber_2024_data_factory_p18_c0 --max-new-chunks 2 --checkpoint-dir data/generated/financial_pilot/question_checkpoints --output data/generated/financial_pilot/questions.jsonl --dry-run
+```
+
+To generate, run the same command without `--dry-run`. Each successfully processed
+chunk must yield exactly ten questions in the existing 4/3/3 distribution: twenty
+questions total if both succeed. Insufficient chunks are explicitly excluded with
+reasons; never fabricate questions to reach twenty. Repeat the same command to
+resume, or add `--export-only` to rebuild the deduplicated question export without
+calls. The export includes only selected chunks and uses atomic replacement.
+
+Once questions exist, preview the answer stage:
+
+```powershell
+uv run python -m financial_intelligence.cli.generate_answers --questions data/generated/financial_pilot/questions.jsonl --max-new-questions 20 --checkpoint-dir data/generated/financial_pilot/answer_checkpoints --output data/generated/financial_pilot/qa_pairs.jsonl --dry-run
+```
+
+Remove `--dry-run` to generate answers, or use `--max-new-questions 5` for a smaller
+first batch. The separate question file and checkpoint directories isolate this
+pilot from the previous thirty questions and their successful answers. No model or
+prompt changes are required; fingerprint and source compatibility checks remain
+active. Repeat the answer command to resume unfinished work without repeating
+completed calls. Historical failures require the explicit `--retry-failed` flag.
+
+Interpret the outcomes separately:
+
+- LLM A insufficient content: excluded chunk checkpoint with a reason; no partial
+  question batch exported.
+- LLM B insufficient evidence: valid completed record with `is_answerable=false`
+  and null answer/evidence, distinct from an exception or validation failure.
+- Invalid response or non-exact quote: failure log entry with
+  `failure_kind=validation_failure`; not exported as a completed answer.
+- Provider failures: `failure_kind=api_failure`, with the existing bounded
+  transient retries. Other unexpected generation errors use `generation_failure`.
+
+Inspect both failure logs, exclusions, and the final Q&A records before scaling.
+Answer records preserve the original chunk ID, source file, page, category, and
+question, together with answerability and exact source evidence. Passing exact
+quote checks is not a semantic quality score. Implementation and offline tests do
+not execute this paid pilot or create placeholder questions/answers.
+
+## Financial answer support revalidation
+
+The offline review in `data/evaluation/financial_qa_revalidation.csv` checks all
+four saved financial records against their original chunk, their checkpoint
+metadata, and the export. In the inspected files all four evidence strings match
+the original exactly; `toDrivers`, `newproducts`, and `otherfactors` are absent.
+The implementation has no normalized-quote recovery path. Whitespace/apostrophe
+normalization in mismatch diagnostics does not make quotes acceptable. Validated
+quotes are saved from the exact original source slice; missing spaces still fail.
+
+Production generation, checkpoint resume, and export now also pass the question
+into a small conservative support check:
+
+- Answerable causal requests (`why`, `reason`, `cause`, `explain how`) require
+  review. A causal marker elsewhere in the excerpt is not proof of the requested
+  cause. A source risk statement alone does not explain why the risk may occur.
+- Summaries, comparisons, and multi-claim requests require review because a
+  substring match does not establish complete claim coverage.
+- Other answers require review unless the answer is extractively covered by the
+  exact evidence quote (case/whitespace normalization is used only for this answer
+  coverage check, never for quote acceptance). Paraphrases and stylistic rewrites
+  can therefore be flagged even when valid.
+
+These are review flags, not a semantic judge. Even passing extractive coverage
+does not prove entailment or question relevance. Unanswerable responses retain
+the explicit false/null contract; flagged answers are never converted to nulls
+or silently accepted. New flags are logged as `semantic_review_required` with a
+bounded `review_reason`. Existing flagged checkpoints halt resume/export with an
+explicit review message before provider calls or replacement of existing output.
+The prompt and model fingerprints remain unchanged; a support-review flag is
+distinct from incompatible checkpoint metadata.
+
+The financial source review accepts the fee/margin and city-profitability answers,
+rejects the unsupported operating-efficiency reason, and requests review of the
+broad summary. The separate historical quote failure also remains for review;
+its full generated answer was not saved. Offline source-review acceptance in the
+CSV does not override the conservative automated gate or rewrite checkpoints.
+
+All 26 original-pilot records and existing financial files are preserved. They
+still pass schema/exact-quote checks. Under the new automated triage, 10 original
+records pass extractive coverage, while 16 need summary/paraphrase review; their
+stored status and content are not changed. Review flagged records before reusing
+them for training or scaling. There is no blanket override to treat a matching
+substring as semantic approval, and no paid evaluator was added.
+
 ## Package layout
 
 ```

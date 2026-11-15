@@ -6,7 +6,10 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+from pydantic import ValidationError
+
 from financial_intelligence.data_factory.answer_generator import (
+    AnswerabilityReviewRequired,
     AnswerGenerator,
     EvidenceQuoteMismatch,
     match_question_source,
@@ -18,6 +21,7 @@ from financial_intelligence.infrastructure.batch_utils import (
     is_transient_error,
 )
 from financial_intelligence.infrastructure.jsonl import load_chunks
+from financial_intelligence.infrastructure.llm_client import InvalidLLMResponse
 from financial_intelligence.schemas.qa import AnswerResponse, QAPairRecord
 
 
@@ -99,13 +103,19 @@ def _read_checkpoint(
         if any(record[key] != value for key, value in question.items()):
             raise ValueError("original question metadata changed")
         validate_grounded_answer(
-            {key: record[key] for key in AnswerResponse.model_fields}, chunk["text"]
+            {key: record[key] for key in AnswerResponse.model_fields},
+            chunk["text"],
+            question=question["question"],
         )
         if allowed_prior_prompt:
             print(
                 f"Reused validated prior-prompt checkpoint: {path.name} ({prior_prompt})"
             )
         return record
+    except AnswerabilityReviewRequired as error:
+        # A valid schema/fingerprint can still need semantic review. Preserve the
+        # file and report that distinction instead of claiming metadata corruption.
+        raise AnswerabilityReviewRequired(error.reason, checkpoint=path.name) from error
     except (ValueError, KeyError, TypeError) as error:
         raise ValueError(
             f"Invalid or incompatible answer checkpoint {path}. "
@@ -214,7 +224,9 @@ def run_answer_batch(
         for attempt in range(1, max_attempts + 1):
             try:
                 answer = validate_grounded_answer(
-                    generator.generate(question, chunk), chunk["text"]
+                    generator.generate(question, chunk),
+                    chunk["text"],
+                    question=question["question"],
                 )
                 record = QAPairRecord.model_validate(
                     {**question, **answer.model_dump()}
@@ -230,6 +242,16 @@ def run_answer_batch(
                     "timestamp": datetime.now(timezone.utc).isoformat(),
                     "attempts": attempt,
                     "error_type": type(error).__name__,
+                    "failure_kind": (
+                        "semantic_review_required"
+                        if isinstance(error, AnswerabilityReviewRequired)
+                        else "validation_failure"
+                        if isinstance(error, (InvalidLLMResponse, ValidationError))
+                        else "api_failure"
+                        if is_transient_error(error)
+                        or isinstance(getattr(error, "status_code", None), int)
+                        else "generation_failure"
+                    ),
                     # Provider and validation exception strings may contain
                     # credentials, raw responses, or full prompts/documents.
                     "error": (
@@ -240,6 +262,8 @@ def run_answer_batch(
                 }
                 if isinstance(error, EvidenceQuoteMismatch):
                     failure["evidence_diagnostics"] = error.diagnostics
+                if isinstance(error, AnswerabilityReviewRequired):
+                    failure["review_reason"] = error.reason
                 checkpoint_dir.mkdir(parents=True, exist_ok=True)
                 with (checkpoint_dir / "failures.jsonl").open(
                     "a", encoding="utf-8"

@@ -16,6 +16,12 @@ from financial_intelligence.infrastructure.llm_client import LiteLLMClient
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--max-new-chunks", type=int, default=5)
+    parser.add_argument(
+        "--chunk-ids",
+        nargs="+",
+        metavar="CHUNK_ID",
+        help="Process only these chunks in the supplied order; use a separate --output",
+    )
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--dry-run", action="store_true")
     mode.add_argument(
@@ -34,6 +40,22 @@ def main(argv: list[str] | None = None) -> None:
     args = parser.parse_args(argv)
     if args.max_new_chunks < 1:
         parser.error("--max-new-chunks must be positive")
+    if args.chunk_ids:
+        if len(args.chunk_ids) != len(set(args.chunk_ids)):
+            parser.error("--chunk-ids must not contain duplicates")
+        previous_artifacts = {
+            (PROJECT_ROOT / "data/generated" / name).resolve()
+            for name in (
+                "questions.jsonl",
+                "questions_preview.jsonl",
+                "questions_quality_pilot.jsonl",
+                "qa_pairs_preview.jsonl",
+            )
+        }
+        if args.output.resolve() in previous_artifacts:
+            parser.error(
+                "Targeted generation requires a separate --output to preserve prior pilots"
+            )
 
     config = load_config("data")
     document_id = Path(config["documents"]["files"][0]).stem
@@ -44,6 +66,17 @@ def main(argv: list[str] | None = None) -> None:
         / f"{document_id}_chunks.jsonl"
     )
     chunks = load_chunks(chunks_path)
+    if args.output.resolve() == chunks_path.resolve():
+        parser.error("--output must not overwrite the source chunks")
+    if args.chunk_ids:
+        by_id = {chunk["chunk_id"]: chunk for chunk in chunks}
+        if len(by_id) != len(chunks):
+            parser.error("Duplicate source chunk IDs")
+        unknown = [chunk_id for chunk_id in args.chunk_ids if chunk_id not in by_id]
+        if unknown:
+            parser.error(f"Unknown chunk IDs: {', '.join(unknown)}")
+        chunks = [by_id[chunk_id] for chunk_id in args.chunk_ids]
+        print(f"Selected chunks: {', '.join(args.chunk_ids)}")
     generator = QuestionGenerator(
         LiteLLMClient(num_retries=0), config.get("data_generation", {}).get("model")
     )

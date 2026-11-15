@@ -10,6 +10,7 @@ from pydantic import ValidationError
 from financial_intelligence.cli import generate_answers as cli
 from financial_intelligence.data_factory import answer_batch as batch
 from financial_intelligence.data_factory.answer_generator import (
+    AnswerabilityReviewRequired,
     AnswerGenerator,
     EvidenceQuoteMismatch,
     validate_grounded_answer,
@@ -173,7 +174,9 @@ def test_exact_quote_preserves_newlines_and_stylistic_format(chunk, question):
         "evidence_quote": chunk["text"],
     }
     client = FakeLLM(answer)
-    assert AnswerGenerator(client, "model").generate(question, chunk) == answer
+    assert validate_grounded_answer(answer, chunk["text"]).model_dump() == answer
+    with pytest.raises(AnswerabilityReviewRequired):
+        AnswerGenerator(client, "model").generate(question, chunk)
     assert question["question"] in client.calls[0]["prompt"]
 
 
@@ -998,3 +1001,154 @@ def test_cli_normal_run_skips_failures_and_reports_progress(
     ]:
         assert line in output
     assert len(client.calls) == 6
+
+
+@pytest.mark.parametrize(
+    "bad_quote",
+    [
+        "Further, we introduce newproducts and pay amounts to Drivers.",
+        "Further, we introduce new products and pay amounts toDrivers.",
+        "Further, we introduce new products and pay amounts to Drivers due to otherfactors.",
+    ],
+)
+def test_missing_spaces_in_evidence_are_never_recovered_or_accepted(bad_quote):
+    source = "Further, we introduce new products and pay amounts to Drivers due to other factors."
+    response = {
+        "answer": "new products",
+        "is_answerable": True,
+        "evidence_quote": bad_quote,
+    }
+    with pytest.raises(EvidenceQuoteMismatch):
+        validate_grounded_answer(
+            response, source, question="Which products are introduced?"
+        )
+
+
+def test_saved_evidence_is_the_unmodified_original_source_slice():
+    source = "New products may generate lower margins.\nPayments to Drivers depend on other factors."
+    quote = "Payments to Drivers depend on other factors."
+    response = {"answer": quote, "is_answerable": True, "evidence_quote": quote}
+    validated = validate_grounded_answer(
+        response, source, question="What does the excerpt state?"
+    )
+    start = source.index(quote)
+    assert validated.evidence_quote == source[start : start + len(quote)]
+    assert "to Drivers" in validated.evidence_quote
+    assert "other factors" in validated.evidence_quote
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "Why might operating efficiencies not be realized?",
+        "What is one reason the company might not realize its expected efficiencies?",
+        "Explain how acquisitions cause operating efficiencies to fail.",
+    ],
+)
+def test_exact_quote_restatement_does_not_answer_an_unsupported_cause(question):
+    source = "We may not realize operating efficiencies expected from acquisitions."
+    response = {"answer": source, "is_answerable": True, "evidence_quote": source}
+    with pytest.raises(
+        AnswerabilityReviewRequired, match="causal_request_requires_review"
+    ):
+        validate_grounded_answer(response, source, question=question)
+
+
+def test_causal_marker_in_unrelated_sentence_does_not_make_answer_safe():
+    source = (
+        "Fees declined because of discounts. We may not realize operating efficiencies."
+    )
+    response = {
+        "answer": "We may not realize operating efficiencies.",
+        "is_answerable": True,
+        "evidence_quote": source,
+    }
+    with pytest.raises(AnswerabilityReviewRequired):
+        validate_grounded_answer(
+            response, source, question="Why might efficiencies not be realized?"
+        )
+
+
+def test_unrelated_verbatim_evidence_does_not_support_an_answer():
+    source = "Revenue was $10 million. Costs were $8 million."
+    response = {
+        "answer": "Costs were $8 million.",
+        "is_answerable": True,
+        "evidence_quote": "Revenue was $10 million.",
+    }
+    with pytest.raises(
+        AnswerabilityReviewRequired, match="nonextractive_answer_requires_review"
+    ):
+        validate_grounded_answer(response, source, question="What were costs?")
+
+
+def test_partial_support_for_multi_claim_question_requires_review():
+    source = "Revenue was $10 million. Costs were $8 million."
+    response = {
+        "answer": "Revenue was $10 million.",
+        "is_answerable": True,
+        "evidence_quote": "Revenue was $10 million.",
+    }
+    with pytest.raises(
+        AnswerabilityReviewRequired, match="multi_claim_request_requires_review"
+    ):
+        validate_grounded_answer(
+            response, source, question="What were revenue and costs?"
+        )
+
+
+def test_causal_unanswerability_remains_explicit_not_fabricated():
+    response = {"answer": None, "is_answerable": False, "evidence_quote": None}
+    assert (
+        validate_grounded_answer(
+            response, "No reason is stated.", question="Why?"
+        ).model_dump()
+        == response
+    )
+
+
+def test_semantically_unsafe_checkpoint_and_export_are_preserved(
+    tmp_path, chunk, question, answer
+):
+    client = FakeLLM(answer)
+    generator = AnswerGenerator(client, "model")
+    output = tmp_path / "qa.jsonl"
+    batch.run_answer_batch([question], [chunk], generator, tmp_path, output_path=output)
+    path = next(tmp_path.glob("*.json"))
+    saved = json.loads(path.read_text(encoding="utf-8"))
+    # Simulate a legacy exact-quote answer that merely repeats a risk.
+    question["question"] = "Why did revenue increase?"
+    saved["question_id"] = batch._question_id(question)
+    saved["metadata"] = batch._metadata(question, chunk, generator.model)
+    saved["record"]["question"] = question["question"]
+    new_path = tmp_path / f"{saved['question_id']}.json"
+    new_path.write_text(json.dumps(saved), encoding="utf-8")
+    before = new_path.read_bytes()
+    original_export = output.read_bytes()
+    with pytest.raises(AnswerabilityReviewRequired):
+        batch.run_answer_batch(
+            [question], [chunk], generator, tmp_path, output_path=output
+        )
+    with pytest.raises(AnswerabilityReviewRequired):
+        batch.export_answer_records(
+            [question], [chunk], generator.model, tmp_path, output
+        )
+    assert len(client.calls) == 1
+    assert new_path.read_bytes() == before
+    assert output.read_bytes() == original_export
+
+
+def test_unsupported_causal_generation_is_logged_for_review_not_unanswerable(
+    tmp_path, chunk, question, answer
+):
+    question["question"] = "Why did revenue increase?"
+    client = FakeLLM(answer)
+    result = batch.run_answer_batch(
+        [question], [chunk], AnswerGenerator(client, "model"), tmp_path
+    )
+    assert result["failed"] == 1
+    assert result["generated"] == result["unanswerable"] == 0
+    failure = load_chunks(tmp_path / "failures.jsonl")[0]
+    assert failure["failure_kind"] == "semantic_review_required"
+    assert failure["review_reason"] == "causal_request_requires_review"
+    assert not list(tmp_path.glob("*.json"))
