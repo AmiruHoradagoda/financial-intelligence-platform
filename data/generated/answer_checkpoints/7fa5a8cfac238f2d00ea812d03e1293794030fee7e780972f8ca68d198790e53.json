@@ -1,0 +1,20 @@
+{
+  "question_id": "7fa5a8cfac238f2d00ea812d03e1293794030fee7e780972f8ca68d198790e53",
+  "metadata": {
+    "version": 1,
+    "model": "openai/gpt-4.1-mini",
+    "prompt_fingerprint": "53617cf1dc8508bd1da0cedd4ca8a93f7d5a1129bd66daac28dcf304b146ff97",
+    "text_fingerprint": "03be856f058243e157f590e09e7ee3b720908da2eff7bcf1dad0b7ff81f9e82e",
+    "question_fingerprint": "3079eba3a97182e4adaccc3f2eee265f91d12bcaec0d30adddba9651b3273f0c"
+  },
+  "record": {
+    "answer": "At the incredible speed of now.",
+    "is_answerable": true,
+    "evidence_quote": "Across the entire\nworld. In real time. At the incredible speed of now.",
+    "category": "hard_fact",
+    "question": "How does Uber describe the speed at which it operates in the excerpt?",
+    "chunk_id": "uber_2024_data_factory_p2_c0",
+    "source_file": "uber_2024.pdf",
+    "page_number": 2
+  }
+}

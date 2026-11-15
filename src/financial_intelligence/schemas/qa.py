@@ -47,3 +47,28 @@ class QuestionRecord(GeneratedQuestion):
     chunk_id: str = Field(min_length=1)
     source_file: str = Field(min_length=1)
     page_number: int = Field(ge=1)
+
+
+class AnswerResponse(BaseModel):
+    """Structured answer; unanswerable responses carry no answer or evidence."""
+
+    model_config = ConfigDict(strict=True, extra="forbid")
+
+    answer: str | None
+    is_answerable: bool
+    evidence_quote: str | None
+
+    @model_validator(mode="after")
+    def validate_answerability(self) -> Self:
+        if self.is_answerable:
+            if not self.answer or not self.answer.strip():
+                raise ValueError("Answerable responses require a nonblank answer")
+            if not self.evidence_quote or not self.evidence_quote.strip():
+                raise ValueError("Answerable responses require nonblank evidence")
+        elif self.answer is not None or self.evidence_quote is not None:
+            raise ValueError("Unanswerable responses require null answer and evidence")
+        return self
+
+
+class QAPairRecord(QuestionRecord, AnswerResponse):
+    """The original question and source metadata together with its answer."""

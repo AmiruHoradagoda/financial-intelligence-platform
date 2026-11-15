@@ -2,8 +2,9 @@
 
 Python mini-project for extracting the Uber 2024 Annual Report, auditing its  
 chunks, sampling financial tables for manual review, and generating grounded  
-questions with LiteLLM. Answer generation, training, and retrieval are outside  
-the current implementation.
+questions with LiteLLM. A small LLM B pilot generates answers from the original
+chunks with structured response and exact source-quote validation. Training and
+retrieval are outside the current implementation.
 
 ## Setup
 
@@ -16,7 +17,10 @@ uv sync --locked
 Copy `.env.example` to `.env` if you do not already have a local environment file.  
 For question generation, set `data_generation.model` in `config/data.yaml`  
 (currently `openai/gpt-4.1-mini`) and supply the provider's credentials in `.env`.  
-Model selection belongs in YAML; credentials stay outside source control. Ingestion, audits,  
+The answer pilot uses the separately configurable `answer_generation.model` in
+the same YAML file (also defaulting to `openai/gpt-4.1-mini`). It does not fall back
+to the question-generation model if this setting is missing.
+Model selection belongs in YAML; credentials stay outside source control. Ingestion, audits,
 table sampling, and tests do not require an LLM API.
 
 Place the report at `data/raw/uber_2024.pdf`. The configured report is Uber 2024  
@@ -109,8 +113,8 @@ exporting successes if any chunk failed. A storage error stops the run; already
 saved checkpoints remain available to resume or export.
 
 The pilot file and existing pilot command are independent of these checkpoints.
-Schema validation enforces the ten-question 4/3/3 contract; semantic quality and
-grounded-answer validation with LLM B remain deferred. No LLM judge is included.
+Schema validation enforces the ten-question 4/3/3 contract. The LLM B answer pilot
+is described below; independent semantic quality review remains deferred.
 
 ### Quality changes and the next pilot
 
@@ -147,6 +151,130 @@ pilot and labels intact, record all excluded IDs and reasons, and manually revie
 the new questions against the same source excerpts and provisional rubric. No new
 pilot questions or quality scores are generated automatically by this change.
 
+## LLM B grounded-answer pilot
+
+The answer CLI joins `data/generated/questions.jsonl` to the original
+`data/processed/data_factory/uber_2024_chunks.jsonl` by chunk ID and verifies the
+source filename and page number. Both input files remain read-only.
+
+Preview five questions without provider calls or file writes:
+
+```powershell
+uv run python -m financial_intelligence.cli.generate_answers --max-new-questions 5 --dry-run
+```
+
+Explicitly generate answers for up to five unfinished questions:
+
+```powershell
+uv run python -m financial_intelligence.cli.generate_answers --max-new-questions 5
+```
+
+The default limit is five. Repeat the command to resume. Equivalent script:
+`uv run scripts/generate_answers.py --max-new-questions 5`.
+
+`AnswerGenerator` uses the existing injected `LLMClient` and `LiteLLMClient`, with
+the separate `answer_generation.model`. The prompt limits answers to the supplied
+chunk, preserves financial years and units, prohibits unstated causes and invented
+boundary text, and requires the requested stylistic format. Pydantic requires:
+
+- `is_answerable: true`: nonblank `answer` and `evidence_quote` strings.
+- `is_answerable: false`: actual JSON nulls for both answer and evidence.
+
+An answerable response's evidence must be an exact contiguous substring of the
+original source, including spelling and whitespace. Invalid JSON, inconsistent
+answerability, missing evidence, or nonmatching quotes fail the question without
+creating a success checkpoint. Exact quote matching checks source presence; it
+does **not** prove that the quote supports every claim, that all numbers are
+correctly interpreted, or that the requested stylistic format was followed.
+Inspect pilot answers against the source before expanding the run. No separate
+LLM judge, fine-tuning, or retrieval pipeline is involved.
+
+Successful answers, including valid unanswerable responses, are saved individually
+under `data/generated/answer_checkpoints/` using atomic replacement. Question IDs
+are hashes of chunk ID and normalized question text, so input reordering does not
+repeat calls. Identical question rows are deduplicated; conflicting duplicates
+and duplicate source chunk IDs are rejected before provider calls. Checkpoints
+record model, prompt, original question, and source-text fingerprints. Every
+relevant checkpoint is revalidated before spending or export; incompatible or
+corrupt checkpoints stop the run. Use `--checkpoint-dir` with a separate directory
+after changing the answer model, prompt, or source. Use one writer per directory.
+
+Transient errors receive at most three attempts with one- and two-second backoff;
+the CLI disables LiteLLM retries. Invalid responses and permanent provider errors
+are not retried. Failures append question metadata, fingerprints, attempt count,
+timestamp, and error details to `answer_checkpoints/failures.jsonl`. Failed
+questions count toward the five-question limit in the run where they fail.
+Normal runs skip IDs already in the failure log and continue with unattempted
+questions. Only `--retry-failed` selects historical failures for another attempt.
+Successful checkpoints take precedence over historical failure entries. No failed
+question is converted to an unanswerable result merely to complete the batch.
+
+Each normal run atomically exports all compatible completed Q&A records, in input
+question order, to `data/generated/qa_pairs_preview.jsonl`. Each row preserves
+`chunk_id`, `source_file`, `page_number`, `category`, and the original `question`,
+plus `answer`, `is_answerable`, and `evidence_quote`. The CLI reports completed,
+unanswerable, skipped, duplicate, failed, and remaining counts. It also
+reports unattempted and unresolved failed counts separately; together they
+equal the remaining count. Historical failures skipped are distinct from failures
+in the current run. A normal run with only historical failures left makes no calls.
+It exports successes and exits with status 1 if any questions failed in this run.
+Storage errors stop the run while preserving prior checkpoints, which can rebuild
+the export without API calls:
+
+```powershell
+uv run python -m financial_intelligence.cli.generate_answers --export-only
+```
+
+Optional `--questions`, `--chunks`, `--checkpoint-dir`, and `--output` paths support
+isolated pilots. The CLI rejects an output path equal to either input file.
+
+### Diagnosing and retrying evidence-quote failures
+
+The answer prompt asks for ONE short, contiguous, verbatim supporting span,
+preserving whitespace, punctuation, capitalization, Unicode, and line breaks.
+Source newlines and tabs must be correctly JSON-escaped so decoding restores the
+original characters. Quotes must not contain paraphrases, added ellipses, or
+stitched fragments. Verification still uses exact substring membership; no fuzzy
+matching or automatic quote recovery is performed. A normalization match is used
+only to explain a rejection, never to accept or replace the quote. Quote matching
+alone still does not establish semantic correctness.
+
+New quote failures include `evidence_diagnostics` in `failures.jsonl`: mismatch
+category, a bounded ASCII-escaped quote preview (at most 160 source characters and
+512 represented characters, with common credential patterns redacted), quote
+length, SHA-256, and a truncation flag. Categories distinguish whitespace,
+Unicode apostrophe, combined, literal JSON-escape, and other span mismatches.
+Full source documents, raw answers, and raw provider exception messages are not
+logged. Existing failure records lack the returned quotes, so their exact character
+differences cannot be reconstructed retrospectively. The mission source's line
+wraps and curly apostrophes are plausible causes, not confirmed per-response causes.
+
+Prompt changes still invalidate checkpoints by default. To preserve previously
+successful answers without overwriting or regenerating them, explicitly allow
+their recorded prompt fingerprint with `--allow-prompt-fingerprint SHA256`
+(repeatable). Every allowed checkpoint is still checked for model, source,
+question metadata, answer schema, and exact evidence; each reuse is printed.
+Its saved fingerprint and file bytes remain unchanged. This option authorizes
+only the prompt difference, not model or source differences. Otherwise, use a
+separate checkpoint directory and output path for the new prompt.
+
+For the original pilot with two completed answers and three quote failures, the
+old prompt fingerprint is
+`3fe4de43c892cca379e3b2a7b5e89c23d5ef7bb04d029f9771c58632b399e37b`.
+Preview a retry of only failed, unfinished questions:
+
+```powershell
+uv run python -m financial_intelligence.cli.generate_answers --retry-failed --max-new-questions 3 --allow-prompt-fingerprint 3fe4de43c892cca379e3b2a7b5e89c23d5ef7bb04d029f9771c58632b399e37b --dry-run
+```
+
+After inspecting the dry run, execute the retry by removing `--dry-run`. The two
+old successes are revalidated and skipped, three failed questions use the revised
+prompt, and the export includes all completed records. `--retry-failed` selects
+IDs from the existing failure log, excludes completed checkpoints even if they
+have historical failures, and never fills the limit with untried questions.
+Missing failure logs select no questions. Keep the explicit prior fingerprint on
+subsequent resume/export commands while that directory contains the old successes.
+
 ## Package layout
 
 ```
@@ -164,9 +292,12 @@ src/financial_intelligence/
         validation.py           # JSON fence parsing and validation helper
         question_generator.py   # Orchestration with an injected LLM client
         batch.py                # Bounded generation, checkpoints, retries, export
+        answer_generator.py     # Injected LLM B with schema and verbatim quote checks
+        answer_batch.py         # Per-question checkpoints and pilot Q&A export
     infrastructure/
         jsonl.py                # Existing JSONL loading and persistence
         llm_client.py           # LiteLLM adapter and small completion protocol
+        batch_utils.py          # Shared atomic writes and transient-error detection
     cli/                        # Configuration, file paths, workflow execution
 scripts/                        # Thin command wrappers
 tests/                          # Offline unit and workflow regression tests

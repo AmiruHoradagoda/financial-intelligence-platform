@@ -25,6 +25,9 @@ data_generation:
   model: "openai/gpt-4.1-mini"
   questions_per_chunk: 10
 
+answer_generation:
+  model: "openai/gpt-4.1-mini"
+
 dataset:
   train_ratio: 0.8
   test_ratio: 0.2

@@ -2,9 +2,7 @@
 
 import hashlib
 import json
-import os
 import re
-import tempfile
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -13,6 +11,12 @@ from financial_intelligence.data_factory.prompts import build_question_prompt
 from financial_intelligence.data_factory.question_generator import (
     InsufficientInformation,
     QuestionGenerator,
+)
+from financial_intelligence.infrastructure.batch_utils import (
+    atomic_write as _atomic_write,
+)
+from financial_intelligence.infrastructure.batch_utils import (
+    is_transient_error as _transient,
 )
 from financial_intelligence.schemas.qa import QuestionBatch, QuestionRecord
 
@@ -75,39 +79,6 @@ def _read_checkpoint(path: Path, chunk: dict, model: str) -> dict:
             "Use a separate checkpoint directory or archive this checkpoint "
             "before regenerating."
         ) from error
-
-
-def _atomic_write(path: Path, content: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temp_path = None
-    try:
-        with tempfile.NamedTemporaryFile(
-            mode="w",
-            encoding="utf-8",
-            dir=path.parent,
-            prefix=f".{path.name}.",
-            suffix=".tmp",
-            delete=False,
-        ) as file:
-            temp_path = Path(file.name)
-            file.write(content)
-            file.flush()
-            os.fsync(file.fileno())
-        temp_path.replace(path)
-    finally:
-        if temp_path is not None:
-            temp_path.unlink(missing_ok=True)
-
-
-def _transient(error: Exception) -> bool:
-    status = getattr(error, "status_code", None)
-    return (
-        isinstance(error, (TimeoutError, ConnectionError))
-        or status in (408, 429)
-        or (isinstance(status, int) and 500 <= status < 600)
-        # LiteLLM's connection error inherits from the provider SDK, not OSError.
-        or any(cls.__name__ == "APIConnectionError" for cls in type(error).__mro__)
-    )
 
 
 def export_completed_records(
