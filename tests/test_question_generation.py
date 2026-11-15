@@ -10,6 +10,7 @@ from financial_intelligence.data_factory.question_generator import (
     generate_questions,
 )
 from financial_intelligence.data_factory.validation import (
+    InsufficientInformation,
     InvalidLLMResponse,
     parse_llm_json,
     validate_generated_questions,
@@ -189,7 +190,8 @@ def test_generate_questions_uses_yaml_model(monkeypatch, questions):
     assert fake.calls[0]["model"] == "yaml/model"
 
 
-def test_adapter_preserves_litellm_request(monkeypatch, questions):
+@pytest.mark.parametrize("num_retries", [None, 0])
+def test_adapter_preserves_litellm_request(monkeypatch, questions, num_retries):
     # Inject the module itself so the test never imports or contacts LiteLLM.
     import sys
 
@@ -208,13 +210,19 @@ def test_adapter_preserves_litellm_request(monkeypatch, questions):
         )
 
     monkeypatch.setitem(sys.modules, "litellm", SimpleNamespace(completion=completion))
-    assert LiteLLMClient().complete(model="existing/model", prompt="Prompt") == content
+    assert (
+        LiteLLMClient(num_retries=num_retries).complete(
+            model="existing/model", prompt="Prompt"
+        )
+        == content
+    )
     assert calls == [
         {
             "model": "existing/model",
             "messages": [{"role": "user", "content": "Prompt"}],
             "temperature": 0.2,
             "max_tokens": 1800,
+            **({} if num_retries is None else {"num_retries": num_retries}),
         }
     ]
 
@@ -245,5 +253,45 @@ def test_prompt_grounding_rules():
         "3 stylistic",
         "Do not speculate",
         "rewrite",
+        "Ask why or for causes only when",
+        "periods, and units",
+        "cut-off boundary sentences",
+        "distinct informational objectives across categories",
+        "promotional self-descriptions",
+        "unprocessable_reason",
     ):
         assert rule in prompt
+
+
+def test_generator_flags_insufficient_information():
+    fake = FakeLLM(
+        '{"unprocessable_reason": "Only slogans; not ten distinct objectives"}'
+    )
+    generator = QuestionGenerator(fake, "model")
+    with pytest.raises(InsufficientInformation, match="Only slogans"):
+        generator.generate({"text": "A brief mission statement"})
+    assert len(fake.calls) == 1
+
+
+def test_generator_excludes_blank_excerpt_without_api_call():
+    fake = FakeLLM("should never be used")
+    with pytest.raises(InsufficientInformation, match="no nonblank source text"):
+        QuestionGenerator(fake, "model").generate({"text": " \n\t"})
+    assert not fake.calls
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        {"unprocessable_reason": ""},
+        {"unprocessable_reason": "  "},
+        {"unprocessable_reason": None},
+        {"unprocessable_reason": 12},
+        {"unprocessable_reason": "Too little evidence", "questions": []},
+    ],
+)
+def test_malformed_exclusion_signals_are_invalid(data):
+    with pytest.raises(InvalidLLMResponse, match="Invalid unprocessable"):
+        QuestionGenerator(FakeLLM(json.dumps(data)), "model").generate(
+            {"text": "Excerpt"}
+        )

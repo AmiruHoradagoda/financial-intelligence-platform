@@ -18,17 +18,12 @@ Question distribution:
 Rules:
 1. Questions must be answerable using the excerpt.
 2. Do not invent financial figures or company facts.
-3. Do not generate duplicate questions.
-4. Return valid JSON only.
-5. Do not include answers.
-6. Return ONLY a valid JSON object.
-7. Do not use Markdown code fences.
-8. Do not include explanations before or after the JSON.
-9. Do not speculate about motives, forecasts, implications, or missing context.
-10. A hard_fact question must ask for a fact explicitly stated in the excerpt.
-11. A strategic_summary question must summarize only stated information;
+3. Return ONLY valid JSON: no answers, Markdown fences, or outside explanations.
+4. Do not speculate about motives, forecasts, implications, or missing context.
+5. A hard_fact question must ask for a fact explicitly stated in the excerpt.
+6. A strategic_summary question must summarize only stated information;
     do not infer strategy or require knowledge from other pages.
-12. A stylistic question must ask for an explanation, summary, or rewrite
+7. A stylistic question must ask for an explanation, summary, or rewrite
     of supported content in a specified tone or format. Do not ask about
     the author's intent or style, invent a scenario, or add unsupported facts.
 
@@ -43,10 +38,23 @@ For stylistic questions:
   only part of a section.
 
 For all categories:
-- Avoid questions that test the same fact repeatedly.
-- Do not ask about information cut off at chunk boundaries.
+- Prioritize useful business facts, financial measures, operations, and stated
+  risks; avoid slogan recall, metaphors, and promotional self-descriptions.
+- Ask why or for causes only when the excerpt explicitly states that causal
+  relationship. A risk of unrealized benefits does not explain its cause.
+  For tables without stated drivers, ask what changed, not why it changed.
+- Use only complete statements and complete table rows with visible labels,
+  periods, and units. Ignore cut-off boundary sentences and cross-references.
+  Do not ask about information cut off at chunk boundaries or an entire section
+  when only part is supplied; refer to the provided excerpt.
+- Give all ten questions distinct informational objectives across categories.
+  Rewording the same fact or summary, or changing only tone, audience, or format,
+  does not make a new objective. Match requested bullet counts to source evidence.
+- If the excerpt cannot support ten useful, distinct, grounded questions in the
+  required 4/3/3 distribution, do not pad, invent, or return a partial batch.
+  Return ONLY {{"unprocessable_reason": "specific missing or insufficient evidence"}}.
 
-Required JSON structure:
+Required JSON structure for a successfully processed excerpt:
 {{
   "questions": [
     {{

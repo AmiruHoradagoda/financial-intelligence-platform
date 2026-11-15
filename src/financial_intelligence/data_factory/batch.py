@@ -1,88 +1,253 @@
+"""Bounded question generation with validated, atomic per-chunk checkpoints."""
 
+import hashlib
 import json
+import os
 import re
+import tempfile
+import time
+from datetime import datetime, timezone
 from pathlib import Path
 
+from financial_intelligence.data_factory.prompts import build_question_prompt
 from financial_intelligence.data_factory.question_generator import (
+    InsufficientInformation,
     QuestionGenerator,
 )
-from financial_intelligence.schemas.qa import QuestionBatch
+from financial_intelligence.schemas.qa import QuestionBatch, QuestionRecord
+
+
+def _fingerprint(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _metadata(chunk: dict, model: str) -> dict:
+    return {
+        "version": 1,
+        "model": model,
+        "prompt_fingerprint": _fingerprint(build_question_prompt("")),
+        "text_fingerprint": _fingerprint(chunk["text"]),
+    }
+
+
+def _source(chunk: dict) -> dict:
+    return {key: chunk[key] for key in ("chunk_id", "source_file", "page_number")}
+
+
+def _checkpoint_path(directory: Path, chunk: dict) -> Path:
+    chunk_id = chunk["chunk_id"]
+    if not isinstance(chunk_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]+", chunk_id):
+        raise ValueError("Invalid chunk ID")
+    # Validate source metadata before spending on generation.
+    if not isinstance(chunk["source_file"], str) or not chunk["source_file"].strip():
+        raise ValueError(f"Invalid source file: {chunk_id}")
+    if type(chunk["page_number"]) is not int or chunk["page_number"] < 1:
+        raise ValueError(f"Invalid page number: {chunk_id}")
+    if not isinstance(chunk["text"], str):
+        raise ValueError(f"Invalid source text: {chunk_id}")
+    return directory / f"{chunk_id}.json"
+
+
+def _read_checkpoint(path: Path, chunk: dict, model: str) -> dict:
+    try:
+        saved = json.loads(path.read_text(encoding="utf-8"))
+        if saved["metadata"] != _metadata(chunk, model):
+            raise ValueError("model, prompt, or source text changed")
+        if _source(saved) != _source(chunk):
+            raise ValueError("source metadata changed")
+        if saved.get("status") == "excluded":
+            if (
+                not isinstance(saved.get("reason"), str)
+                or not saved["reason"].strip()
+                or "questions" in saved
+            ):
+                raise ValueError("invalid exclusion reason or unexpected questions")
+            return saved
+        if saved.get("status", "completed") != "completed":
+            raise ValueError("unknown checkpoint status")
+        QuestionBatch.model_validate({"questions": saved["questions"]})
+        for question in saved["questions"]:
+            QuestionRecord.model_validate({**_source(saved), **question})
+        return saved
+    except (ValueError, KeyError, TypeError) as error:
+        raise ValueError(
+            f"Invalid or incompatible checkpoint {path}. "
+            "Use a separate checkpoint directory or archive this checkpoint "
+            "before regenerating."
+        ) from error
+
+
+def _atomic_write(path: Path, content: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=path.parent,
+            prefix=f".{path.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as file:
+            temp_path = Path(file.name)
+            file.write(content)
+            file.flush()
+            os.fsync(file.fileno())
+        temp_path.replace(path)
+    finally:
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
+
+
+def _transient(error: Exception) -> bool:
+    status = getattr(error, "status_code", None)
+    return (
+        isinstance(error, (TimeoutError, ConnectionError))
+        or status in (408, 429)
+        or (isinstance(status, int) and 500 <= status < 600)
+        # LiteLLM's connection error inherits from the provider SDK, not OSError.
+        or any(cls.__name__ == "APIConnectionError" for cls in type(error).__mro__)
+    )
+
+
+def export_completed_records(
+    chunks: list[dict], model: str, checkpoint_dir: Path, output_path: Path
+) -> int:
+    """Atomically export compatible checkpoints in source chunk order."""
+    rows = []
+    seen = set()
+    for chunk in chunks:
+        path = _checkpoint_path(checkpoint_dir, chunk)
+        if chunk["chunk_id"] in seen:
+            raise ValueError(f"Duplicate chunk ID: {chunk['chunk_id']}")
+        seen.add(chunk["chunk_id"])
+        if not path.exists():
+            continue
+        saved = _read_checkpoint(path, chunk, model)
+        if saved.get("status") == "excluded":
+            continue
+        for question in saved["questions"]:
+            row = {**_source(saved), **question}
+            QuestionRecord.model_validate(row)
+            rows.append(json.dumps(row, ensure_ascii=False) + "\n")
+    _atomic_write(output_path, "".join(rows))
+    return len(rows)
 
 
 def run_question_batch(
     chunks: list[dict],
     generator: QuestionGenerator,
     checkpoint_dir: Path,
-    max_new_chunks: int = 2,
+    max_new_chunks: int = 5,
+    *,
+    dry_run: bool = False,
+    max_attempts: int = 3,
+    output_path: Path | None = None,
 ) -> dict:
-    """Generate and checkpoint a limited number of new chunks."""
+    """Attempt at most N unfinished chunks; retry only transient API failures.
 
+    Existing checkpoints are checked before any API calls. Invalid or incompatible
+    checkpoints stop the run without overwriting them. Run one writer per directory.
+    """
     if max_new_chunks < 1:
         raise ValueError("max_new_chunks must be positive")
+    if not 1 <= max_attempts <= 3:
+        raise ValueError("max_attempts must be between 1 and 3")
 
-    checkpoint_dir.mkdir(parents=True, exist_ok=True)
-
-    generated = 0
+    pending = []
+    seen = set()
     skipped = 0
-
+    skipped_excluded = 0
+    exclusions = []
     for chunk in chunks:
-        chunk_id = chunk["chunk_id"]
+        path = _checkpoint_path(checkpoint_dir, chunk)
+        if chunk["chunk_id"] in seen:
+            raise ValueError(f"Duplicate chunk ID: {chunk['chunk_id']}")
+        seen.add(chunk["chunk_id"])
+        if path.exists():
+            saved = _read_checkpoint(path, chunk, generator.model)
+            if saved.get("status") == "excluded":
+                skipped_excluded += 1
+                exclusions.append(
+                    {"chunk_id": chunk["chunk_id"], "reason": saved["reason"]}
+                )
+            else:
+                skipped += 1
+        else:
+            pending.append((chunk, path))
 
-        if not isinstance(chunk_id, str) or not re.fullmatch(
-            r"[A-Za-z0-9_-]+", chunk_id
-        ):
-            raise ValueError("Invalid chunk ID")
-
-        checkpoint_path = checkpoint_dir / f"{chunk_id}.json"
-
-        # Resume: validate previously completed work.
-        if checkpoint_path.exists():
-            saved = json.loads(
-                checkpoint_path.read_text(encoding="utf-8")
-            )
-
-            if saved["chunk_id"] != chunk_id:
-                raise ValueError("Checkpoint ID mismatch")
-
-            QuestionBatch.model_validate({
-                "questions": saved["questions"]
-            })
-
-            skipped += 1
-            continue
-
-        # Cost protection: limit NEW LLM calls.
-        if generated >= max_new_chunks:
-            break
-
-        questions = generator.generate(chunk)
-
-        # Defensive validation at the batch boundary.
-        QuestionBatch.model_validate({
-            "questions": questions
-        })
-
-        record = {
-            "chunk_id": chunk_id,
-            "source_file": chunk["source_file"],
-            "page_number": chunk["page_number"],
-            "questions": questions,
-        }
-
-        # Write first, then replace the final checkpoint.
-        temp_path = checkpoint_path.with_suffix(".json.tmp")
-
-        temp_path.write_text(
-            json.dumps(record, ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
-
-        temp_path.replace(checkpoint_path)
-
-        generated += 1
-        print(f"Completed: {chunk_id}")
-
-    return {
-        "generated": generated,
+    selected = pending[:max_new_chunks]
+    result = {
+        "generated": 0,
         "skipped": skipped,
+        "failed": 0,
+        "planned": len(selected),
+        "attempted": 0,
+        "exported": 0,
+        "excluded": 0,
+        "skipped_excluded": skipped_excluded,
+        "exclusions": exclusions,
+        "remaining": len(pending),
+        "total": len(chunks),
     }
+    if dry_run:
+        return result
+
+    for chunk, path in selected:
+        result["attempted"] += 1
+        for attempt in range(1, max_attempts + 1):
+            try:
+                questions = generator.generate(chunk)
+                QuestionBatch.model_validate({"questions": questions})
+            except InsufficientInformation as error:
+                record = {
+                    **_source(chunk),
+                    "metadata": _metadata(chunk, generator.model),
+                    "status": "excluded",
+                    "reason": str(error),
+                }
+                _atomic_write(path, json.dumps(record, ensure_ascii=False, indent=2))
+                result["excluded"] += 1
+                result["exclusions"].append(
+                    {"chunk_id": chunk["chunk_id"], "reason": str(error)}
+                )
+                result["remaining"] -= 1
+                break
+            except Exception as error:
+                if _transient(error) and attempt < max_attempts:
+                    time.sleep(2 ** (attempt - 1))
+                    continue
+                failure = {
+                    **_source(chunk),
+                    "metadata": _metadata(chunk, generator.model),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "attempts": attempt,
+                    "error_type": type(error).__name__,
+                    "error": str(error),
+                }
+                checkpoint_dir.mkdir(parents=True, exist_ok=True)
+                with (checkpoint_dir / "failures.jsonl").open(
+                    "a", encoding="utf-8"
+                ) as file:
+                    file.write(json.dumps(failure, ensure_ascii=False) + "\n")
+                result["failed"] += 1
+                print(f"Failed: {chunk['chunk_id']} ({type(error).__name__})")
+                break
+            else:
+                record = {
+                    **_source(chunk),
+                    "metadata": _metadata(chunk, generator.model),
+                    "questions": questions,
+                }
+                # Storage errors stop the run; never report an unsaved success.
+                _atomic_write(path, json.dumps(record, ensure_ascii=False, indent=2))
+                result["generated"] += 1
+                result["remaining"] -= 1
+                print(f"Completed: {chunk['chunk_id']}")
+                break
+
+    if output_path is not None:
+        result["exported"] = export_completed_records(
+            chunks, generator.model, checkpoint_dir, output_path
+        )
+    return result

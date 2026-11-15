@@ -5,6 +5,7 @@ from pydantic import ValidationError
 from financial_intelligence.config import load_config
 from financial_intelligence.data_factory.prompts import build_question_prompt
 from financial_intelligence.data_factory.validation import (
+    InsufficientInformation,
     InvalidLLMResponse,
     parse_llm_json,
     validate_generated_questions,
@@ -13,6 +14,7 @@ from financial_intelligence.infrastructure.llm_client import LiteLLMClient, LLMC
 from financial_intelligence.schemas.qa import QuestionBatch
 
 __all__ = [
+    "InsufficientInformation",
     "QuestionGenerator",
     "generate_questions",
     "parse_llm_json",
@@ -32,10 +34,23 @@ class QuestionGenerator:
         self.model = model
 
     def generate(self, chunk: dict) -> list[dict]:
+        if not chunk["text"].strip():
+            raise InsufficientInformation(
+                "The excerpt contains no nonblank source text"
+            )
         content = self.llm_client.complete(
             model=self.model, prompt=build_question_prompt(chunk["text"])
         )
         data = parse_llm_json(content)
+        if "unprocessable_reason" in data:
+            reason = data["unprocessable_reason"]
+            if (
+                set(data) != {"unprocessable_reason"}
+                or not isinstance(reason, str)
+                or not reason.strip()
+            ):
+                raise InvalidLLMResponse("Invalid unprocessable excerpt response")
+            raise InsufficientInformation(reason.strip())
         try:
             batch = QuestionBatch.model_validate(data)
         except ValidationError as error:

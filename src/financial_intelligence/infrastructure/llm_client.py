@@ -14,14 +14,19 @@ class LLMClient(Protocol):
 
 
 class LiteLLMClient:
+    def __init__(self, *, num_retries: int | None = None) -> None:
+        self.num_retries = num_retries
+
     def complete(self, *, model: str, prompt: str) -> str:
         from litellm import completion
 
+        options = {} if self.num_retries is None else {"num_retries": self.num_retries}
         response = completion(
             model=model,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.2,
             max_tokens=1800,
+            **options,
         )
         if not response.choices:
             raise InvalidLLMResponse("LLM returned no choices")

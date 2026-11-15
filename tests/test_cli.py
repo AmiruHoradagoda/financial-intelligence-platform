@@ -76,9 +76,24 @@ def test_workflows_write_existing_formats_in_isolated_directory(tmp_path, monkey
 
     monkeypatch.setenv("QUESTION_MODEL", "ignored/env-model")
     monkeypatch.setattr(generate_questions, "LiteLLMClient", FakeLLM)
+    # The existing pilot CLI selects these three specific chunks.
+    pilot_chunks = [
+        {
+            "chunk_id": chunk_id,
+            "source_file": "uber_2024.pdf",
+            "page_number": page,
+            "text": "Revenue grew by 10 percent. " * 30,
+        }
+        for chunk_id, page in [
+            ("uber_2024_data_factory_p2_c0", 2),
+            ("uber_2024_data_factory_p18_c0", 18),
+            ("uber_2024_data_factory_p57_c1", 57),
+        ]
+    ]
+    monkeypatch.setattr(generate_questions, "load_chunks", lambda path: pilot_chunks)
     generate_questions.main()
-    rows = load_chunks(tmp_path / "data/generated/questions_preview.jsonl")
-    assert len(rows) == 20
+    rows = load_chunks(tmp_path / "data/generated/questions_quality_pilot.jsonl")
+    assert len(rows) == 30
     assert list(rows[0]) == [
         "chunk_id",
         "source_file",
@@ -86,15 +101,13 @@ def test_workflows_write_existing_formats_in_isolated_directory(tmp_path, monkey
         "category",
         "question",
     ]
-    chunks = load_chunks(
-        tmp_path / "data/processed/data_factory/uber_2024_chunks.jsonl"
-    )
-    assert rows[0]["chunk_id"] == chunks[0]["chunk_id"]
-    assert rows[-1]["chunk_id"] == chunks[1]["chunk_id"]
-    assert all(
-        row["source_file"] == "uber_2024.pdf" and row["page_number"] == 1
-        for row in rows
-    )
+    for index, chunk in enumerate(pilot_chunks):
+        assert all(
+            row["chunk_id"] == chunk["chunk_id"]
+            and row["source_file"] == chunk["source_file"]
+            and row["page_number"] == chunk["page_number"]
+            for row in rows[index * 10 : (index + 1) * 10]
+        )
 
 
 def test_root_detection_after_changing_directory(tmp_path, monkeypatch):

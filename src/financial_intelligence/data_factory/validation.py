@@ -7,7 +7,16 @@ from pydantic import ValidationError
 from financial_intelligence.infrastructure.llm_client import InvalidLLMResponse
 from financial_intelligence.schemas.qa import QuestionBatch
 
-__all__ = ["InvalidLLMResponse", "parse_llm_json", "validate_generated_questions"]
+__all__ = [
+    "InsufficientInformation",
+    "InvalidLLMResponse",
+    "parse_llm_json",
+    "validate_generated_questions",
+]
+
+
+class InsufficientInformation(ValueError):
+    """The excerpt cannot support the required ten grounded, distinct questions."""
 
 
 def parse_llm_json(content: str) -> dict:

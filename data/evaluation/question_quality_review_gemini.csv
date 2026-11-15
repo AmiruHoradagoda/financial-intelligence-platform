@@ -1,0 +1,487 @@
+question_id,chunk_id,page_number,category,question,source_text,answerable,category_correct,useful,non_redundant,evidence_quote,verdict,notes
+pilot_001,uber_2024_data_factory_p2_c0,2,hard_fact,What is Uber's stated mission according to the report excerpt?,"Uber’s Mission
+We reimagine the way the world moves for the better
+We are Uber. The go-getters. The kind of people who are relentless about our
+mission to help people go anywhere and get anything and earn their way.
+Movement is what we power. It’s our lifeblood. It runs through our veins. It’s
+what gets us out of bed each morning. It pushes us to constantly reimagine
+how we can move better. For you. For all the places you want to go. For all the
+things you want to get. For all the ways you want to earn. Across the entire
+world. In real time. At the incredible speed of now.",yes,yes,yes,yes,We reimagine the way the world moves for the better,accept,Directly answerable from the opening mission statement; additional support is provided in 'our mission to help people go anywhere and get anything and earn their way.'
+pilot_002,uber_2024_data_factory_p2_c0,2,hard_fact,"According to the excerpt, what does Uber describe as its 'lifeblood'?","Uber’s Mission
+We reimagine the way the world moves for the better
+We are Uber. The go-getters. The kind of people who are relentless about our
+mission to help people go anywhere and get anything and earn their way.
+Movement is what we power. It’s our lifeblood. It runs through our veins. It’s
+what gets us out of bed each morning. It pushes us to constantly reimagine
+how we can move better. For you. For all the places you want to go. For all the
+things you want to get. For all the ways you want to earn. Across the entire
+world. In real time. At the incredible speed of now.",yes,yes,unsure,yes,Movement is what we power. It’s our lifeblood.,review,"Quality issue: Uncertain usefulness due to metaphorical focus. While the answer ('Movement') identifies Uber's core domain, querying the rhetorical figure of speech ('lifeblood') borders on trivial marketing-copy retrieval for a Financial Intelligence Assistant. Suggested improvement: 'What core activity does Uber state that it powers globally?'"
+pilot_003,uber_2024_data_factory_p2_c0,2,hard_fact,Who does Uber identify as the type of people they are in the mission statement?,"Uber’s Mission
+We reimagine the way the world moves for the better
+We are Uber. The go-getters. The kind of people who are relentless about our
+mission to help people go anywhere and get anything and earn their way.
+Movement is what we power. It’s our lifeblood. It runs through our veins. It’s
+what gets us out of bed each morning. It pushes us to constantly reimagine
+how we can move better. For you. For all the places you want to go. For all the
+things you want to get. For all the ways you want to earn. Across the entire
+world. In real time. At the incredible speed of now.",yes,yes,no,yes,"We are Uber. The go-getters. The kind of people who are relentless about our
+mission to help people go anywhere and get anything and earn their way.",reject,"Quality problem: Trivial promotional question (not useful). Asking how Uber characterizes the 'type of people they are' ('The go-getters') tests marketing slogan recall rather than meaningful business, financial, or strategic comprehension. Suggested improvement: Replace with a question focusing on the operational scope ('Across the entire world. In real time.')."
+pilot_004,uber_2024_data_factory_p2_c0,2,hard_fact,What three key activities does Uber's mission emphasize helping people do?,"Uber’s Mission
+We reimagine the way the world moves for the better
+We are Uber. The go-getters. The kind of people who are relentless about our
+mission to help people go anywhere and get anything and earn their way.
+Movement is what we power. It’s our lifeblood. It runs through our veins. It’s
+what gets us out of bed each morning. It pushes us to constantly reimagine
+how we can move better. For you. For all the places you want to go. For all the
+things you want to get. For all the ways you want to earn. Across the entire
+world. In real time. At the incredible speed of now.",yes,yes,yes,yes,mission to help people go anywhere and get anything and earn their way.,accept,"Directly answerable and useful; identifies Uber's three foundational user and earner activities (go anywhere, get anything, earn their way), reinforced later in the excerpt."
+pilot_005,uber_2024_data_factory_p2_c0,2,strategic_summary,Summarize Uber's mission statement focusing on how it aims to impact movement globally.,"Uber’s Mission
+We reimagine the way the world moves for the better
+We are Uber. The go-getters. The kind of people who are relentless about our
+mission to help people go anywhere and get anything and earn their way.
+Movement is what we power. It’s our lifeblood. It runs through our veins. It’s
+what gets us out of bed each morning. It pushes us to constantly reimagine
+how we can move better. For you. For all the places you want to go. For all the
+things you want to get. For all the ways you want to earn. Across the entire
+world. In real time. At the incredible speed of now.",yes,yes,yes,yes,"We reimagine the way the world moves for the better
+We are Uber. The go-getters. The kind of people who are relentless about our
+mission to help people go anywhere and get anything and earn their way.",accept,"Well-grounded strategic summary synthesizing the overarching mission with global movement across mobility, delivery, and earning ('Across the entire world. In real time.')."
+pilot_006,uber_2024_data_factory_p2_c0,2,strategic_summary,Provide a summary of Uber's mission that highlights the company's approach to speed and real-time service.,"Uber’s Mission
+We reimagine the way the world moves for the better
+We are Uber. The go-getters. The kind of people who are relentless about our
+mission to help people go anywhere and get anything and earn their way.
+Movement is what we power. It’s our lifeblood. It runs through our veins. It’s
+what gets us out of bed each morning. It pushes us to constantly reimagine
+how we can move better. For you. For all the places you want to go. For all the
+things you want to get. For all the ways you want to earn. Across the entire
+world. In real time. At the incredible speed of now.",unsure,yes,unsure,unsure,"Across the entire
+world. In real time. At the incredible speed of now.",review,Quality issue: Thin source evidence and partial overlap with pilot_005. The excerpt contains only two brief tagline fragments ('In real time. At the incredible speed of now.') rather than a substantive explanation of an operational 'approach' to speed and real-time service. Suggested improvement: Fold real-time global execution into the primary mission summary in pilot_005.
+pilot_007,uber_2024_data_factory_p2_c0,2,strategic_summary,Summarize the excerpt explaining Uber's motivation and purpose in one concise paragraph.,"Uber’s Mission
+We reimagine the way the world moves for the better
+We are Uber. The go-getters. The kind of people who are relentless about our
+mission to help people go anywhere and get anything and earn their way.
+Movement is what we power. It’s our lifeblood. It runs through our veins. It’s
+what gets us out of bed each morning. It pushes us to constantly reimagine
+how we can move better. For you. For all the places you want to go. For all the
+things you want to get. For all the ways you want to earn. Across the entire
+world. In real time. At the incredible speed of now.",yes,yes,yes,no,"Movement is what we power. It’s our lifeblood. It runs through our veins. It’s
+what gets us out of bed each morning. It pushes us to constantly reimagine
+how we can move better.",reject,"Quality problem: Redundant within chunk (duplicates pilot_005). Because the 95-word excerpt consists solely of Uber's mission, motivation, and purpose around powering movement, a second general paragraph summary tests the exact same informational objective as pilot_005."
+pilot_008,uber_2024_data_factory_p2_c0,2,stylistic,Rewrite Uber's mission statement in plain English suitable for a general audience.,"Uber’s Mission
+We reimagine the way the world moves for the better
+We are Uber. The go-getters. The kind of people who are relentless about our
+mission to help people go anywhere and get anything and earn their way.
+Movement is what we power. It’s our lifeblood. It runs through our veins. It’s
+what gets us out of bed each morning. It pushes us to constantly reimagine
+how we can move better. For you. For all the places you want to go. For all the
+things you want to get. For all the ways you want to earn. Across the entire
+world. In real time. At the incredible speed of now.",yes,yes,yes,yes,"We reimagine the way the world moves for the better
+We are Uber. The go-getters. The kind of people who are relentless about our
+mission to help people go anywhere and get anything and earn their way.",accept,Valid stylistic transformation; tests translating promotional mission prose into plain English for a general audience using only supported facts.
+pilot_009,uber_2024_data_factory_p2_c0,2,stylistic,Provide an executive summary of Uber's mission in three bullet points.,"Uber’s Mission
+We reimagine the way the world moves for the better
+We are Uber. The go-getters. The kind of people who are relentless about our
+mission to help people go anywhere and get anything and earn their way.
+Movement is what we power. It’s our lifeblood. It runs through our veins. It’s
+what gets us out of bed each morning. It pushes us to constantly reimagine
+how we can move better. For you. For all the places you want to go. For all the
+things you want to get. For all the ways you want to earn. Across the entire
+world. In real time. At the incredible speed of now.",yes,yes,yes,yes,"We reimagine the way the world moves for the better
+We are Uber. The go-getters. The kind of people who are relentless about our
+mission to help people go anywhere and get anything and earn their way.",accept,"Valid stylistic formatting task; the excerpt supports three distinct executive bullets covering the core mission, the three core platform activities, and real-time global scale."
+pilot_010,uber_2024_data_factory_p2_c0,2,stylistic,Explain Uber's mission in a formal tone appropriate for an investor presentation.,"Uber’s Mission
+We reimagine the way the world moves for the better
+We are Uber. The go-getters. The kind of people who are relentless about our
+mission to help people go anywhere and get anything and earn their way.
+Movement is what we power. It’s our lifeblood. It runs through our veins. It’s
+what gets us out of bed each morning. It pushes us to constantly reimagine
+how we can move better. For you. For all the places you want to go. For all the
+things you want to get. For all the ways you want to earn. Across the entire
+world. In real time. At the incredible speed of now.",yes,yes,yes,yes,"We reimagine the way the world moves for the better
+We are Uber. The go-getters. The kind of people who are relentless about our
+mission to help people go anywhere and get anything and earn their way.",accept,"Valid stylistic register shift; tests reframing aspirational brand language into a formal investor-presentation tone, distinct from the general-audience rewrite in pilot_008 and bullet format in pilot_009."
+pilot_011,uber_2024_data_factory_p18_c0,18,hard_fact,What impact might charging a lower service fee to certain merchant partners on the Delivery offering have on Revenue Margin?,"addition, we sometimes introduce new products that we expect to add value to our overall platform and network but which we expect
+will generate lower Gross Bookings per Trip or a lower Revenue Margin. Further, we may charge a lower service fee to certain of our
+merchant partners on our Delivery offering to grow the number of Delivery consumers, which may at times result in a negative
+Revenue Margin with respect to those transactions after considering amounts collected from consumers and paid to Drivers. As we
+expand our offerings to additional cities, our offerings in these cities may be less profitable than the markets in which we currently
+operate. As such, we may not be able to maintain profitability in the near term, in accordance with our expectations, or at all.
+Additionally, we may not realize the operating efficiencies we expect to achieve as a result of our prior or future acquisitions. Even if
+we do experience operating efficiencies, our operating results may not improve, at least in the near term.
+
+If we are unable to attract or maintain a sufficient number of Drivers, consumers, merchants, Shippers, and Carriers, whether as a
+result of competition or other factors, our platform will become less appealing to platform users, and our financial results would be
+adversely impacted.
+
+   Our success in a given geographic market significantly depends on our ability to develop our network scale and liquidity in that
+geographic market by attracting Drivers, consumers, merch",yes,yes,yes,yes,"Further, we may charge a lower service fee to certain of our
+merchant partners on our Delivery offering to grow the number of Delivery consumers, which may at times result in a negative
+Revenue Margin with respect to those transactions after considering amounts collected from consumers and paid to Drivers.",accept,Directly answerable and useful factual retrieval testing comprehension of Delivery merchant fee discounting and potential negative Revenue Margin.
+pilot_012,uber_2024_data_factory_p18_c0,18,hard_fact,"According to the excerpt, what could happen to profitability as the company expands its offerings to additional cities?","addition, we sometimes introduce new products that we expect to add value to our overall platform and network but which we expect
+will generate lower Gross Bookings per Trip or a lower Revenue Margin. Further, we may charge a lower service fee to certain of our
+merchant partners on our Delivery offering to grow the number of Delivery consumers, which may at times result in a negative
+Revenue Margin with respect to those transactions after considering amounts collected from consumers and paid to Drivers. As we
+expand our offerings to additional cities, our offerings in these cities may be less profitable than the markets in which we currently
+operate. As such, we may not be able to maintain profitability in the near term, in accordance with our expectations, or at all.
+Additionally, we may not realize the operating efficiencies we expect to achieve as a result of our prior or future acquisitions. Even if
+we do experience operating efficiencies, our operating results may not improve, at least in the near term.
+
+If we are unable to attract or maintain a sufficient number of Drivers, consumers, merchants, Shippers, and Carriers, whether as a
+result of competition or other factors, our platform will become less appealing to platform users, and our financial results would be
+adversely impacted.
+
+   Our success in a given geographic market significantly depends on our ability to develop our network scale and liquidity in that
+geographic market by attracting Drivers, consumers, merch",yes,yes,yes,yes,"As we
+expand our offerings to additional cities, our offerings in these cities may be less profitable than the markets in which we currently
+operate. As such, we may not be able to maintain profitability in the near term, in accordance with our expectations, or at all.",accept,Directly answerable factual retrieval capturing lower profitability in new cities and the resulting risk to maintaining overall profitability.
+pilot_013,uber_2024_data_factory_p18_c0,18,hard_fact,What is one reason the company might not realize the operating efficiencies it expects?,"addition, we sometimes introduce new products that we expect to add value to our overall platform and network but which we expect
+will generate lower Gross Bookings per Trip or a lower Revenue Margin. Further, we may charge a lower service fee to certain of our
+merchant partners on our Delivery offering to grow the number of Delivery consumers, which may at times result in a negative
+Revenue Margin with respect to those transactions after considering amounts collected from consumers and paid to Drivers. As we
+expand our offerings to additional cities, our offerings in these cities may be less profitable than the markets in which we currently
+operate. As such, we may not be able to maintain profitability in the near term, in accordance with our expectations, or at all.
+Additionally, we may not realize the operating efficiencies we expect to achieve as a result of our prior or future acquisitions. Even if
+we do experience operating efficiencies, our operating results may not improve, at least in the near term.
+
+If we are unable to attract or maintain a sufficient number of Drivers, consumers, merchants, Shippers, and Carriers, whether as a
+result of competition or other factors, our platform will become less appealing to platform users, and our financial results would be
+adversely impacted.
+
+   Our success in a given geographic market significantly depends on our ability to develop our network scale and liquidity in that
+geographic market by attracting Drivers, consumers, merch",no,yes,no,yes,,reject,"Quality problem: Unanswerable causal question premised on a grammatical misreading. The excerpt states Uber 'may not realize the operating efficiencies we expect to achieve as a result of our prior or future acquisitions,' where acquisitions are the source of the expected efficiencies, not the cause of failing to realize them. No reason for failing to realize efficiencies is stated. Suggested improvement: 'What risk does the company disclose regarding operating efficiencies expected from prior or future acquisitions?'"
+pilot_014,uber_2024_data_factory_p18_c0,18,hard_fact,What factors could cause the platform to become less appealing to users and negatively impact financial results?,"addition, we sometimes introduce new products that we expect to add value to our overall platform and network but which we expect
+will generate lower Gross Bookings per Trip or a lower Revenue Margin. Further, we may charge a lower service fee to certain of our
+merchant partners on our Delivery offering to grow the number of Delivery consumers, which may at times result in a negative
+Revenue Margin with respect to those transactions after considering amounts collected from consumers and paid to Drivers. As we
+expand our offerings to additional cities, our offerings in these cities may be less profitable than the markets in which we currently
+operate. As such, we may not be able to maintain profitability in the near term, in accordance with our expectations, or at all.
+Additionally, we may not realize the operating efficiencies we expect to achieve as a result of our prior or future acquisitions. Even if
+we do experience operating efficiencies, our operating results may not improve, at least in the near term.
+
+If we are unable to attract or maintain a sufficient number of Drivers, consumers, merchants, Shippers, and Carriers, whether as a
+result of competition or other factors, our platform will become less appealing to platform users, and our financial results would be
+adversely impacted.
+
+   Our success in a given geographic market significantly depends on our ability to develop our network scale and liquidity in that
+geographic market by attracting Drivers, consumers, merch",yes,yes,yes,yes,"If we are unable to attract or maintain a sufficient number of Drivers, consumers, merchants, Shippers, and Carriers, whether as a
+result of competition or other factors, our platform will become less appealing to platform users, and our financial results would be
+adversely impacted.",accept,"Directly supported factual retrieval identifying inability to attract or maintain sufficient Drivers, consumers, merchants, Shippers, and Carriers (due to competition or other factors) as the cause."
+pilot_015,uber_2024_data_factory_p18_c0,18,strategic_summary,Summarize the challenges the company faces in maintaining profitability and operating efficiencies as described in the excerpt.,"addition, we sometimes introduce new products that we expect to add value to our overall platform and network but which we expect
+will generate lower Gross Bookings per Trip or a lower Revenue Margin. Further, we may charge a lower service fee to certain of our
+merchant partners on our Delivery offering to grow the number of Delivery consumers, which may at times result in a negative
+Revenue Margin with respect to those transactions after considering amounts collected from consumers and paid to Drivers. As we
+expand our offerings to additional cities, our offerings in these cities may be less profitable than the markets in which we currently
+operate. As such, we may not be able to maintain profitability in the near term, in accordance with our expectations, or at all.
+Additionally, we may not realize the operating efficiencies we expect to achieve as a result of our prior or future acquisitions. Even if
+we do experience operating efficiencies, our operating results may not improve, at least in the near term.
+
+If we are unable to attract or maintain a sufficient number of Drivers, consumers, merchants, Shippers, and Carriers, whether as a
+result of competition or other factors, our platform will become less appealing to platform users, and our financial results would be
+adversely impacted.
+
+   Our success in a given geographic market significantly depends on our ability to develop our network scale and liquidity in that
+geographic market by attracting Drivers, consumers, merch",yes,yes,yes,yes,"As we
+expand our offerings to additional cities, our offerings in these cities may be less profitable than the markets in which we currently
+operate. As such, we may not be able to maintain profitability in the near term, in accordance with our expectations, or at all.
+Additionally, we may not realize the operating efficiencies we expect to achieve as a result of our prior or future acquisitions. Even if
+we do experience operating efficiencies, our operating results may not improve, at least in the near term.",accept,"Strong strategic summary synthesizing all first-paragraph challenges: lower-margin new products, negative Delivery Revenue Margin from reduced merchant fees, less profitable city expansions, and uncertain acquisition efficiencies."
+pilot_016,uber_2024_data_factory_p18_c0,18,strategic_summary,Provide a summary of how the company’s success in a geographic market depends on network scale and liquidity.,"addition, we sometimes introduce new products that we expect to add value to our overall platform and network but which we expect
+will generate lower Gross Bookings per Trip or a lower Revenue Margin. Further, we may charge a lower service fee to certain of our
+merchant partners on our Delivery offering to grow the number of Delivery consumers, which may at times result in a negative
+Revenue Margin with respect to those transactions after considering amounts collected from consumers and paid to Drivers. As we
+expand our offerings to additional cities, our offerings in these cities may be less profitable than the markets in which we currently
+operate. As such, we may not be able to maintain profitability in the near term, in accordance with our expectations, or at all.
+Additionally, we may not realize the operating efficiencies we expect to achieve as a result of our prior or future acquisitions. Even if
+we do experience operating efficiencies, our operating results may not improve, at least in the near term.
+
+If we are unable to attract or maintain a sufficient number of Drivers, consumers, merchants, Shippers, and Carriers, whether as a
+result of competition or other factors, our platform will become less appealing to platform users, and our financial results would be
+adversely impacted.
+
+   Our success in a given geographic market significantly depends on our ability to develop our network scale and liquidity in that
+geographic market by attracting Drivers, consumers, merch",no,yes,no,yes,,reject,"Quality problem: Unanswerable due to mid-sentence truncation at the chunk boundary. The only sentence mentioning network scale and liquidity cuts off mid-word ('...by attracting Drivers, consumers, merch'). Without assuming missing text from the next chunk, a complete summary cannot be supported. Suggested improvement: Enforce sentence-boundary chunking and prohibit generating questions from truncated boundary sentences."
+pilot_017,uber_2024_data_factory_p18_c0,18,strategic_summary,Summarize the relationship between attracting platform users and the company’s financial results as stated in the excerpt.,"addition, we sometimes introduce new products that we expect to add value to our overall platform and network but which we expect
+will generate lower Gross Bookings per Trip or a lower Revenue Margin. Further, we may charge a lower service fee to certain of our
+merchant partners on our Delivery offering to grow the number of Delivery consumers, which may at times result in a negative
+Revenue Margin with respect to those transactions after considering amounts collected from consumers and paid to Drivers. As we
+expand our offerings to additional cities, our offerings in these cities may be less profitable than the markets in which we currently
+operate. As such, we may not be able to maintain profitability in the near term, in accordance with our expectations, or at all.
+Additionally, we may not realize the operating efficiencies we expect to achieve as a result of our prior or future acquisitions. Even if
+we do experience operating efficiencies, our operating results may not improve, at least in the near term.
+
+If we are unable to attract or maintain a sufficient number of Drivers, consumers, merchants, Shippers, and Carriers, whether as a
+result of competition or other factors, our platform will become less appealing to platform users, and our financial results would be
+adversely impacted.
+
+   Our success in a given geographic market significantly depends on our ability to develop our network scale and liquidity in that
+geographic market by attracting Drivers, consumers, merch",yes,unsure,yes,no,"If we are unable to attract or maintain a sufficient number of Drivers, consumers, merchants, Shippers, and Carriers, whether as a
+result of competition or other factors, our platform will become less appealing to platform users, and our financial results would be
+adversely impacted.",reject,Quality problem: Redundant within chunk (duplicates pilot_014) and weak category fit. Both pilot_014 and pilot_017 query the exact same single sentence in the second paragraph linking participant attraction/retention to platform appeal and financial results. Suggested improvement: Replace with a synthesis comparing margin dilution from product/pricing initiatives against user-growth objectives.
+pilot_018,uber_2024_data_factory_p18_c0,18,stylistic,Rewrite the explanation about the potential negative Revenue Margin from Delivery transactions in plain English suitable for a general audience.,"addition, we sometimes introduce new products that we expect to add value to our overall platform and network but which we expect
+will generate lower Gross Bookings per Trip or a lower Revenue Margin. Further, we may charge a lower service fee to certain of our
+merchant partners on our Delivery offering to grow the number of Delivery consumers, which may at times result in a negative
+Revenue Margin with respect to those transactions after considering amounts collected from consumers and paid to Drivers. As we
+expand our offerings to additional cities, our offerings in these cities may be less profitable than the markets in which we currently
+operate. As such, we may not be able to maintain profitability in the near term, in accordance with our expectations, or at all.
+Additionally, we may not realize the operating efficiencies we expect to achieve as a result of our prior or future acquisitions. Even if
+we do experience operating efficiencies, our operating results may not improve, at least in the near term.
+
+If we are unable to attract or maintain a sufficient number of Drivers, consumers, merchants, Shippers, and Carriers, whether as a
+result of competition or other factors, our platform will become less appealing to platform users, and our financial results would be
+adversely impacted.
+
+   Our success in a given geographic market significantly depends on our ability to develop our network scale and liquidity in that
+geographic market by attracting Drivers, consumers, merch",yes,yes,yes,yes,"Further, we may charge a lower service fee to certain of our
+merchant partners on our Delivery offering to grow the number of Delivery consumers, which may at times result in a negative
+Revenue Margin with respect to those transactions after considering amounts collected from consumers and paid to Drivers.",accept,"Valid stylistic transformation rewriting the complex Delivery unit-economics disclosure into plain English for a general audience, serving a distinct communication purpose from pilot_011."
+pilot_019,uber_2024_data_factory_p18_c0,18,stylistic,Provide an investor-friendly explanation in three bullet points about the risks related to expanding offerings into new cities.,"addition, we sometimes introduce new products that we expect to add value to our overall platform and network but which we expect
+will generate lower Gross Bookings per Trip or a lower Revenue Margin. Further, we may charge a lower service fee to certain of our
+merchant partners on our Delivery offering to grow the number of Delivery consumers, which may at times result in a negative
+Revenue Margin with respect to those transactions after considering amounts collected from consumers and paid to Drivers. As we
+expand our offerings to additional cities, our offerings in these cities may be less profitable than the markets in which we currently
+operate. As such, we may not be able to maintain profitability in the near term, in accordance with our expectations, or at all.
+Additionally, we may not realize the operating efficiencies we expect to achieve as a result of our prior or future acquisitions. Even if
+we do experience operating efficiencies, our operating results may not improve, at least in the near term.
+
+If we are unable to attract or maintain a sufficient number of Drivers, consumers, merchants, Shippers, and Carriers, whether as a
+result of competition or other factors, our platform will become less appealing to platform users, and our financial results would be
+adversely impacted.
+
+   Our success in a given geographic market significantly depends on our ability to develop our network scale and liquidity in that
+geographic market by attracting Drivers, consumers, merch",unsure,yes,yes,unsure,"As we
+expand our offerings to additional cities, our offerings in these cities may be less profitable than the markets in which we currently
+operate. As such, we may not be able to maintain profitability in the near term, in accordance with our expectations, or at all.",review,"Quality issue: Over-constrained bullet count relative to source evidence and partial overlap with pilot_012. The excerpt has only two sentences on expanding into new cities (lower profitability in new markets and resulting inability to maintain overall profitability in the near term, as expected, or at all), forcing an artificial split to reach three bullets without inventing facts. Suggested improvement: Ask for a three-bullet investor summary covering new product introductions, Delivery fee discounts, and city expansion."
+pilot_020,uber_2024_data_factory_p18_c0,18,stylistic,Create a formal tone executive summary of the excerpt focusing on the factors affecting profitability and platform appeal.,"addition, we sometimes introduce new products that we expect to add value to our overall platform and network but which we expect
+will generate lower Gross Bookings per Trip or a lower Revenue Margin. Further, we may charge a lower service fee to certain of our
+merchant partners on our Delivery offering to grow the number of Delivery consumers, which may at times result in a negative
+Revenue Margin with respect to those transactions after considering amounts collected from consumers and paid to Drivers. As we
+expand our offerings to additional cities, our offerings in these cities may be less profitable than the markets in which we currently
+operate. As such, we may not be able to maintain profitability in the near term, in accordance with our expectations, or at all.
+Additionally, we may not realize the operating efficiencies we expect to achieve as a result of our prior or future acquisitions. Even if
+we do experience operating efficiencies, our operating results may not improve, at least in the near term.
+
+If we are unable to attract or maintain a sufficient number of Drivers, consumers, merchants, Shippers, and Carriers, whether as a
+result of competition or other factors, our platform will become less appealing to platform users, and our financial results would be
+adversely impacted.
+
+   Our success in a given geographic market significantly depends on our ability to develop our network scale and liquidity in that
+geographic market by attracting Drivers, consumers, merch",yes,yes,yes,yes,"If we are unable to attract or maintain a sufficient number of Drivers, consumers, merchants, Shippers, and Carriers, whether as a
+result of competition or other factors, our platform will become less appealing to platform users, and our financial results would be
+adversely impacted.",accept,Valid stylistic executive summary combining both profitability pressures (paragraph 1) and platform-appeal/user-retention risks (paragraph 2) in a formal business register.
+pilot_021,uber_2024_data_factory_p57_c1,57,hard_fact,"What was the total revenue reported for the year ended December 31, 2024?"," in Part II, Item 8, “Financial Statements and Supplementary Data,” of this Annual Report on Form 10-K.
+
+    Results of Operations
+
+   The following table summarizes our consolidated statements of operations for each of the periods presented (in millions):
+
+                                                                                                              Year Ended December 31,
+
+                                                                                                                 2023          2024
+
+ Revenue                                                                                $   37,281  $   43,978
+ Costs and expenses
+ Cost of revenue, exclusive of depreciation and amortization shown separately below                         22,457      26,651
+ Operations and support                                                                                2,689       2,732
+ Sales and marketing                                                                                   4,356       4,337
+ Research and development                                                                             3,164       3,109
+ General and administrative                                                                             2,682       3,639
+ Depreciation and amortization                                                                    823        711
+            Total costs and expenses                                                                 36,171      41,179",yes,yes,yes,yes,"Revenue                                                                                $   37,281  $   43,978",accept,"Directly answerable numerical retrieval ($43,978 million for 2024); table headers explicitly provide the period ('Year Ended December 31, 2024') and unit ('in millions')."
+pilot_022,uber_2024_data_factory_p57_c1,57,hard_fact,"How much was spent on research and development in the year ended December 31, 2023?"," in Part II, Item 8, “Financial Statements and Supplementary Data,” of this Annual Report on Form 10-K.
+
+    Results of Operations
+
+   The following table summarizes our consolidated statements of operations for each of the periods presented (in millions):
+
+                                                                                                              Year Ended December 31,
+
+                                                                                                                 2023          2024
+
+ Revenue                                                                                $   37,281  $   43,978
+ Costs and expenses
+ Cost of revenue, exclusive of depreciation and amortization shown separately below                         22,457      26,651
+ Operations and support                                                                                2,689       2,732
+ Sales and marketing                                                                                   4,356       4,337
+ Research and development                                                                             3,164       3,109
+ General and administrative                                                                             2,682       3,639
+ Depreciation and amortization                                                                    823        711
+            Total costs and expenses                                                                 36,171      41,179",yes,yes,yes,yes,"Research and development                                                                             3,164       3,109",accept,"Directly answerable numerical retrieval ($3,164 million for 2023); table headers explicitly support the period ('Year Ended December 31, 2023') and unit ('in millions')."
+pilot_023,uber_2024_data_factory_p57_c1,57,hard_fact,"What was the amount listed under depreciation and amortization for the year ended December 31, 2024?"," in Part II, Item 8, “Financial Statements and Supplementary Data,” of this Annual Report on Form 10-K.
+
+    Results of Operations
+
+   The following table summarizes our consolidated statements of operations for each of the periods presented (in millions):
+
+                                                                                                              Year Ended December 31,
+
+                                                                                                                 2023          2024
+
+ Revenue                                                                                $   37,281  $   43,978
+ Costs and expenses
+ Cost of revenue, exclusive of depreciation and amortization shown separately below                         22,457      26,651
+ Operations and support                                                                                2,689       2,732
+ Sales and marketing                                                                                   4,356       4,337
+ Research and development                                                                             3,164       3,109
+ General and administrative                                                                             2,682       3,639
+ Depreciation and amortization                                                                    823        711
+            Total costs and expenses                                                                 36,171      41,179",yes,yes,yes,yes,Depreciation and amortization                                                                    823        711,accept,"Directly answerable numerical retrieval ($711 million for 2024); table headers explicitly support the period ('Year Ended December 31, 2024') and unit ('in millions')."
+pilot_024,uber_2024_data_factory_p57_c1,57,hard_fact,"What were the total costs and expenses for the year ended December 31, 2023?"," in Part II, Item 8, “Financial Statements and Supplementary Data,” of this Annual Report on Form 10-K.
+
+    Results of Operations
+
+   The following table summarizes our consolidated statements of operations for each of the periods presented (in millions):
+
+                                                                                                              Year Ended December 31,
+
+                                                                                                                 2023          2024
+
+ Revenue                                                                                $   37,281  $   43,978
+ Costs and expenses
+ Cost of revenue, exclusive of depreciation and amortization shown separately below                         22,457      26,651
+ Operations and support                                                                                2,689       2,732
+ Sales and marketing                                                                                   4,356       4,337
+ Research and development                                                                             3,164       3,109
+ General and administrative                                                                             2,682       3,639
+ Depreciation and amortization                                                                    823        711
+            Total costs and expenses                                                                 36,171      41,179",yes,yes,yes,yes,"Total costs and expenses                                                                 36,171      41,179",accept,"Directly answerable numerical retrieval ($36,171 million for 2023); table headers explicitly support the period ('Year Ended December 31, 2023') and unit ('in millions')."
+pilot_025,uber_2024_data_factory_p57_c1,57,strategic_summary,Provide a summary of the changes in costs and expenses between 2023 and 2024 in three bullet points.," in Part II, Item 8, “Financial Statements and Supplementary Data,” of this Annual Report on Form 10-K.
+
+    Results of Operations
+
+   The following table summarizes our consolidated statements of operations for each of the periods presented (in millions):
+
+                                                                                                              Year Ended December 31,
+
+                                                                                                                 2023          2024
+
+ Revenue                                                                                $   37,281  $   43,978
+ Costs and expenses
+ Cost of revenue, exclusive of depreciation and amortization shown separately below                         22,457      26,651
+ Operations and support                                                                                2,689       2,732
+ Sales and marketing                                                                                   4,356       4,337
+ Research and development                                                                             3,164       3,109
+ General and administrative                                                                             2,682       3,639
+ Depreciation and amortization                                                                    823        711
+            Total costs and expenses                                                                 36,171      41,179",yes,yes,yes,yes,"Cost of revenue, exclusive of depreciation and amortization shown separately below                         22,457      26,651
+ Operations and support                                                                                2,689       2,732
+ Sales and marketing                                                                                   4,356       4,337
+ Research and development                                                                             3,164       3,109
+ General and administrative                                                                             2,682       3,639
+ Depreciation and amortization                                                                    823        711
+            Total costs and expenses                                                                 36,171      41,179",accept,"Valid strategic summary synthesizing year-over-year movements across individual operating expense categories and total costs ($36,171 million to $41,179 million); primary objective is multi-line synthesis."
+pilot_026,uber_2024_data_factory_p57_c1,57,strategic_summary,"Summarize the revenue and total costs and expenses for the years ended December 31, 2023 and 2024 in an investor-friendly explanation."," in Part II, Item 8, “Financial Statements and Supplementary Data,” of this Annual Report on Form 10-K.
+
+    Results of Operations
+
+   The following table summarizes our consolidated statements of operations for each of the periods presented (in millions):
+
+                                                                                                              Year Ended December 31,
+
+                                                                                                                 2023          2024
+
+ Revenue                                                                                $   37,281  $   43,978
+ Costs and expenses
+ Cost of revenue, exclusive of depreciation and amortization shown separately below                         22,457      26,651
+ Operations and support                                                                                2,689       2,732
+ Sales and marketing                                                                                   4,356       4,337
+ Research and development                                                                             3,164       3,109
+ General and administrative                                                                             2,682       3,639
+ Depreciation and amortization                                                                    823        711
+            Total costs and expenses                                                                 36,171      41,179",yes,yes,yes,yes,"Revenue                                                                                $   37,281  $   43,978
+ Costs and expenses
+ Cost of revenue, exclusive of depreciation and amortization shown separately below                         22,457      26,651
+ Operations and support                                                                                2,689       2,732
+ Sales and marketing                                                                                   4,356       4,337
+ Research and development                                                                             3,164       3,109
+ General and administrative                                                                             2,682       3,639
+ Depreciation and amortization                                                                    823        711
+            Total costs and expenses                                                                 36,171      41,179",accept,"Valid strategic synthesis comparing top-line Revenue growth ($37,281 million to $43,978 million) against Total costs and expenses ($36,171 million to $41,179 million) across 2023 and 2024."
+pilot_027,uber_2024_data_factory_p57_c1,57,strategic_summary,Create a brief executive summary comparing the main expense categories for 2023 and 2024.," in Part II, Item 8, “Financial Statements and Supplementary Data,” of this Annual Report on Form 10-K.
+
+    Results of Operations
+
+   The following table summarizes our consolidated statements of operations for each of the periods presented (in millions):
+
+                                                                                                              Year Ended December 31,
+
+                                                                                                                 2023          2024
+
+ Revenue                                                                                $   37,281  $   43,978
+ Costs and expenses
+ Cost of revenue, exclusive of depreciation and amortization shown separately below                         22,457      26,651
+ Operations and support                                                                                2,689       2,732
+ Sales and marketing                                                                                   4,356       4,337
+ Research and development                                                                             3,164       3,109
+ General and administrative                                                                             2,682       3,639
+ Depreciation and amortization                                                                    823        711
+            Total costs and expenses                                                                 36,171      41,179",yes,yes,yes,no,"Cost of revenue, exclusive of depreciation and amortization shown separately below                         22,457      26,651
+ Operations and support                                                                                2,689       2,732
+ Sales and marketing                                                                                   4,356       4,337
+ Research and development                                                                             3,164       3,109
+ General and administrative                                                                             2,682       3,639
+ Depreciation and amortization                                                                    823        711
+            Total costs and expenses                                                                 36,171      41,179",reject,"Quality problem: Redundant within chunk (duplicates pilot_025). Both pilot_025 and pilot_027 are strategic_summary tasks asking to compare and summarize the main expense categories across 2023 and 2024. Suggested improvement: Replace with an analytical comparison distinguishing expense categories that increased (Cost of revenue, Operations and support, G&A) from those that decreased (Sales and marketing, R&D, D&A)."
+pilot_028,uber_2024_data_factory_p57_c1,57,stylistic,Rewrite the 'Results of Operations' section as a plain English summary suitable for a general audience.," in Part II, Item 8, “Financial Statements and Supplementary Data,” of this Annual Report on Form 10-K.
+
+    Results of Operations
+
+   The following table summarizes our consolidated statements of operations for each of the periods presented (in millions):
+
+                                                                                                              Year Ended December 31,
+
+                                                                                                                 2023          2024
+
+ Revenue                                                                                $   37,281  $   43,978
+ Costs and expenses
+ Cost of revenue, exclusive of depreciation and amortization shown separately below                         22,457      26,651
+ Operations and support                                                                                2,689       2,732
+ Sales and marketing                                                                                   4,356       4,337
+ Research and development                                                                             3,164       3,109
+ General and administrative                                                                             2,682       3,639
+ Depreciation and amortization                                                                    823        711
+            Total costs and expenses                                                                 36,171      41,179",yes,yes,yes,yes,The following table summarizes our consolidated statements of operations for each of the periods presented (in millions):,accept,Valid stylistic rewrite converting the tabular Consolidated Statements of Operations summary into accessible plain English for a general audience.
+pilot_029,uber_2024_data_factory_p57_c1,57,stylistic,Explain the changes in sales and marketing expenses from 2023 to 2024 in a formal tone.," in Part II, Item 8, “Financial Statements and Supplementary Data,” of this Annual Report on Form 10-K.
+
+    Results of Operations
+
+   The following table summarizes our consolidated statements of operations for each of the periods presented (in millions):
+
+                                                                                                              Year Ended December 31,
+
+                                                                                                                 2023          2024
+
+ Revenue                                                                                $   37,281  $   43,978
+ Costs and expenses
+ Cost of revenue, exclusive of depreciation and amortization shown separately below                         22,457      26,651
+ Operations and support                                                                                2,689       2,732
+ Sales and marketing                                                                                   4,356       4,337
+ Research and development                                                                             3,164       3,109
+ General and administrative                                                                             2,682       3,639
+ Depreciation and amortization                                                                    823        711
+            Total costs and expenses                                                                 36,171      41,179",unsure,yes,unsure,yes,"Sales and marketing                                                                                   4,356       4,337",review,"Quality issue: Ambiguous phrasing ('Explain the changes') for a tabular-only excerpt. The source provides only the 2023 and 2024 dollar amounts ($4,356 million and $4,337 million) with no qualitative drivers. If interpreted as stating the numerical change in a formal tone, it is answerable; if interpreted as explaining why expenses changed, it is unanswerable. Suggested improvement: 'State the year-over-year change in sales and marketing expenses from 2023 to 2024 in a formal tone.'"
+pilot_030,uber_2024_data_factory_p57_c1,57,stylistic,Present the financial data for costs and expenses in 2023 and 2024 as three concise bullet points for a board meeting.," in Part II, Item 8, “Financial Statements and Supplementary Data,” of this Annual Report on Form 10-K.
+
+    Results of Operations
+
+   The following table summarizes our consolidated statements of operations for each of the periods presented (in millions):
+
+                                                                                                              Year Ended December 31,
+
+                                                                                                                 2023          2024
+
+ Revenue                                                                                $   37,281  $   43,978
+ Costs and expenses
+ Cost of revenue, exclusive of depreciation and amortization shown separately below                         22,457      26,651
+ Operations and support                                                                                2,689       2,732
+ Sales and marketing                                                                                   4,356       4,337
+ Research and development                                                                             3,164       3,109
+ General and administrative                                                                             2,682       3,639
+ Depreciation and amortization                                                                    823        711
+            Total costs and expenses                                                                 36,171      41,179",yes,yes,yes,no,"Cost of revenue, exclusive of depreciation and amortization shown separately below                         22,457      26,651
+ Operations and support                                                                                2,689       2,732
+ Sales and marketing                                                                                   4,356       4,337
+ Research and development                                                                             3,164       3,109
+ General and administrative                                                                             2,682       3,639
+ Depreciation and amortization                                                                    823        711
+            Total costs and expenses                                                                 36,171      41,179",reject,Quality problem: Redundant within chunk (duplicates pilot_025 and pilot_027). Presenting 2023 and 2024 costs and expenses as three concise bullet points for a board meeting substantially duplicates pilot_025 ('Provide a summary of the changes in costs and expenses between 2023 and 2024 in three bullet points').
