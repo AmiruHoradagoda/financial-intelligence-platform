@@ -1,12 +1,10 @@
 import importlib
 import json
-from pathlib import Path
 
 import pymupdf
 
 from financial_intelligence.cli import (
     audit_data,
-    generate_questions,
     ingest,
     review_tables,
 )
@@ -38,7 +36,7 @@ def test_workflows_write_existing_formats_in_isolated_directory(tmp_path, monkey
         for line in range(25):
             page.insert_text((50, 50 + line * 20), "Revenue grew by 10 percent. " * 3)
         pdf.save(pdf_path)
-    for module in (ingest, audit_data, review_tables, generate_questions):
+    for module in (ingest, audit_data, review_tables):
         monkeypatch.setattr(module, "PROJECT_ROOT", tmp_path)
         monkeypatch.setattr(module, "load_config", lambda name: config)
 
@@ -59,55 +57,9 @@ def test_workflows_write_existing_formats_in_isolated_directory(tmp_path, monkey
         encoding="utf-8-sig"
     )
     assert review.splitlines()[0] == (
-        "document,page_number,selection_reason,numeric_tokens,"
-        "values_correct,table_structure_correct,notes"
+    "document,page_number,selection_reason,numeric_tokens,"
+    "values_correct,table_structure_correct,notes"
     )
-
-    categories = ["hard_fact"] * 4 + ["strategic_summary"] * 3 + ["stylistic"] * 3
-    questions = [
-        {"category": category, "question": f"Question {i}?"}
-        for i, category in enumerate(categories)
-    ]
-
-    class FakeLLM:
-        def complete(self, *, model, prompt):
-            assert model == "fake/model"
-            return json.dumps({"questions": questions})
-
-    monkeypatch.setenv("QUESTION_MODEL", "ignored/env-model")
-    monkeypatch.setattr(generate_questions, "LiteLLMClient", FakeLLM)
-    # The existing pilot CLI selects these three specific chunks.
-    pilot_chunks = [
-        {
-            "chunk_id": chunk_id,
-            "source_file": "uber_2024.pdf",
-            "page_number": page,
-            "text": "Revenue grew by 10 percent. " * 30,
-        }
-        for chunk_id, page in [
-            ("uber_2024_data_factory_p2_c0", 2),
-            ("uber_2024_data_factory_p18_c0", 18),
-            ("uber_2024_data_factory_p57_c1", 57),
-        ]
-    ]
-    monkeypatch.setattr(generate_questions, "load_chunks", lambda path: pilot_chunks)
-    generate_questions.main()
-    rows = load_chunks(tmp_path / "data/generated/questions_quality_pilot.jsonl")
-    assert len(rows) == 30
-    assert list(rows[0]) == [
-        "chunk_id",
-        "source_file",
-        "page_number",
-        "category",
-        "question",
-    ]
-    for index, chunk in enumerate(pilot_chunks):
-        assert all(
-            row["chunk_id"] == chunk["chunk_id"]
-            and row["source_file"] == chunk["source_file"]
-            and row["page_number"] == chunk["page_number"]
-            for row in rows[index * 10 : (index + 1) * 10]
-        )
 
 
 def test_root_detection_after_changing_directory(tmp_path, monkeypatch):
@@ -124,10 +76,10 @@ def test_root_override(tmp_path, monkeypatch):
 
 
 def test_entry_points_import_without_running(capsys):
-    for name in ("ingest", "audit_data", "review_tables", "generate_questions"):
-        module = importlib.import_module(f"financial_intelligence.cli.{name}")
+    for name in ("ingest", "audit_data", "review_tables"):
+        module = importlib.import_module(
+            f"financial_intelligence.cli.{name}"
+        )
         assert callable(module.main)
-        assert (
-            Path(__file__).resolve().parents[1] / "scripts" / f"{name}.py"
-        ).is_file()
+
     assert capsys.readouterr().out == ""

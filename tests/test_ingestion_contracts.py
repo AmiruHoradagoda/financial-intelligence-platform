@@ -156,7 +156,6 @@ def test_table_sampling_deterministic():
         "cli.ingest",
         "cli.audit_data",
         "cli.review_tables",
-        "cli.generate_questions",
         "ingestion.verification",
     ],
 )

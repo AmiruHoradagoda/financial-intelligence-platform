@@ -10,3 +10,17 @@ __pycache__/
 build/
 dist/
 *.egg-info/
+
+# Data Factory runtime outputs
+data/generated/question_checkpoints/
+data/generated/answer_checkpoints/
+data/generated/questions.jsonl
+data/generated/qa_pairs.jsonl
+
+# Old experimental outputs
+data/generated/*_preview.jsonl
+data/generated/*_pilot*.jsonl
+
+# Local debugging artifacts
+financial_pilot_debug.zip
+financial_pilot_quality_audit.md
